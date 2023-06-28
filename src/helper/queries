@@ -1,0 +1,6 @@
+//add new column
+ALTER TABLE `demo`.`user` 
+ADD COLUMN `password` VARCHAR(45) NULL DEFAULT NULL AFTER `email_id`;
+
+//select table 
+SELECT * from `demo`.`user`;
