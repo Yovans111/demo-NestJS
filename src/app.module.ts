@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './layout/auth/auth.module';
 import { User } from './modules/user/entity/user.entity';
 import { ModulesModule } from './modules/modules.module';
+import { Chat } from './modules/chat/entity/chat.entity';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -16,7 +17,7 @@ import { ModulesModule } from './modules/modules.module';
       username: 'root',
       password: 'admin@123#2023',
       database: 'demo',
-      entities: [User],
+      entities: [User, Chat],
       // synchronize: true,
     }),
     RouterModule.register([

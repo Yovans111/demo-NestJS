@@ -1,6 +1,15 @@
-//add new column
+-- add new column
 ALTER TABLE `demo`.`user` 
 ADD COLUMN `password` VARCHAR(45) NULL DEFAULT NULL AFTER `email_id`;
 
-//select table 
+-- select table 
 SELECT * from `demo`.`user`;
+
+-- create table
+CREATE TABLE `demo`.`chat` (
+    `id` int NOT NULL AUTO_INCREMENT,
+	`email_id` varchar(255) NOT NULL,
+    `text` varchar(255),
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+);
