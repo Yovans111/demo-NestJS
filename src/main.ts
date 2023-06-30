@@ -30,23 +30,24 @@ async function bootstrap() {
   const server = await app.listen(3000, '0.0.0.0', function () {
   });
 
-  const io = new Server({
-    path: "/my-chat/",
-    // allowRequest: (req, callback) => {
-    //   const noOriginHeader = req.headers.origin === undefined;
-    //   callback(null, noOriginHeader);
-    // },
-    // allowEIO3: true,
-    cors: {
-      origin: true,
-      // methods: ['GET,POST,OPTIONS,DELETE,PUT'],
-      // allowedHeaders: ["Access-Control-Allow-Headers", "Access-Control-Allow-Methods", "Access-Control-Allow-Origin"],
-      credentials: true,
-      // optionsSuccessStatus: 200,
-    },
+  // const io = new Server({
 
-  });
-  io.listen(3001);
+  //   path: "/my-chat/",
+  //   // allowRequest: (req, callback) => {
+  //   //   const noOriginHeader = req.headers.origin === undefined;
+  //   //   callback(null, noOriginHeader);
+  //   // },
+  //   // allowEIO3: true,
+  //   cors: {
+  //     origin: true,
+  //     // methods: ['GET,POST,OPTIONS,DELETE,PUT'],
+  //     // allowedHeaders: ["Access-Control-Allow-Headers", "Access-Control-Allow-Methods", "Access-Control-Allow-Origin"],
+  //     credentials: true,
+  //     // optionsSuccessStatus: 200,
+  //   },
+
+  // });
+  // io.listen(3001);
 
 }
 bootstrap();

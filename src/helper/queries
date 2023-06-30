@@ -13,3 +13,9 @@ CREATE TABLE `demo`.`chat` (
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 );
+
+-- Delete Row From Table
+DELETE FROM `demo`.`chat` WHERE (`id` = '1');
+
+-- update Row
+UPDATE `demo`.`user` SET `password` = 'vans@123' WHERE (`id` = '2');

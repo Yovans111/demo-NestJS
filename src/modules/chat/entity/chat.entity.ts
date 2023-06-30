@@ -4,13 +4,13 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeor
 @Entity()
 export class Chat {
 
-    @PrimaryGeneratedColumn('uuid')
+    @PrimaryGeneratedColumn()
     id: number;
 
     @Column()
     email_id: string;
 
-    @Column({ unique: true })
+    @Column()
     text: string;
 
     @CreateDateColumn()
