@@ -17,7 +17,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private logger = new Logger('gateway')
   constructor(private chatService: ChatService) { }
 
-  @WebSocketServer() server: Server
+  @WebSocketServer() server: Server | any
 
   handleDisconnect(client: any) {
     console.log(`Disconnected: ${client.id}`);

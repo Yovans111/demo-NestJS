@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { userData } from './user-dto.dto';
 import { User } from './entity/user.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { Connection } from 'mysql2/typings/mysql/lib/Connection';
 
 @Injectable()
 export class UserService {
@@ -10,6 +11,7 @@ export class UserService {
     constructor(
         @InjectRepository(User)
         private usersRepository: Repository<User>,
+        @InjectDataSource() private dataSource: DataSource
     ) { }
     async getUserData(): Promise<User[]> {
         const d = await this.usersRepository.find();
@@ -28,6 +30,7 @@ export class UserService {
         }
     }
     async getById(id: any): Promise<User | any> {
+        // const q = await this.dataSource.query('SELECT user.id , user.name ,user.email_id,user.age  FROM `demo`.`user` as user WHERE user.id = 1 ')
         const d = await this.usersRepository.findOneBy(id);
         delete d.password
         return d

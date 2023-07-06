@@ -5,6 +5,7 @@ import { ChatModule } from './chat/chat.module';
 import { User } from './user/entity/user.entity';
 import { UserModule } from './user/user.module';
 import { Chat } from './chat/entity/chat.entity';
+import { MessageModule } from './message/message.module';
 
 const Route: Routes = [
     {
@@ -15,13 +16,18 @@ const Route: Routes = [
         path: 'api/' + 'chat',
         module: ChatModule
     },
+    {
+        path: 'api/' + 'message',
+        module: MessageModule
+    },
 ]
 @Module({
     imports: [
         UserModule,
         ChatModule,
+        MessageModule,
         TypeOrmModule.forFeature([User, Chat]),
-        RouterModule.register(Route)
+        RouterModule.register(Route),
     ],
 })
 export class ModulesModule { }

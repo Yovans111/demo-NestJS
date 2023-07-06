@@ -7,6 +7,7 @@ import { AuthModule } from './layout/auth/auth.module';
 import { User } from './modules/user/entity/user.entity';
 import { ModulesModule } from './modules/modules.module';
 import { Chat } from './modules/chat/entity/chat.entity';
+import { MessageEntity } from './modules/message/message.entity';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -17,7 +18,7 @@ import { Chat } from './modules/chat/entity/chat.entity';
       username: 'root',
       password: 'admin@123#2023',
       database: 'demo',
-      entities: [User, Chat],
+      entities: [User, Chat, MessageEntity],
       // synchronize: true,
     }),
     RouterModule.register([
