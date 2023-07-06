@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { userData } from './user-dto.dto';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { ReturnAllUser, userData } from './user-dto.dto';
 import { User } from './entity/user.entity';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -13,13 +13,13 @@ export class UserService {
         private usersRepository: Repository<User>,
         @InjectDataSource() private dataSource: DataSource
     ) { }
-    async getUserData(): Promise<User[]> {
+    async getUserData(): Promise<ReturnAllUser> {
         const d = await this.usersRepository.find();
         d.map((a: User) => {
             delete a.password
             return a
         })
-        return d
+        return { result: d, statusCode: HttpStatus.OK, message: 'success' }
     }
 
     saveData(data: userData) {

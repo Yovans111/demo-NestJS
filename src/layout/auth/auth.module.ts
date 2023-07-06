@@ -6,11 +6,12 @@ import { AuthService } from './auth.service';
 import { jwtConstants } from './constant';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from 'src/modules/user/entity/user.entity';
+import { CacheModule } from '@nestjs/cache-manager';
 
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([User]),CacheModule.register(),
         JwtModule.register({
             secret: jwtConstants.secret,
             signOptions: { expiresIn: '2h' },
