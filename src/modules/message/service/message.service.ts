@@ -7,6 +7,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ChatGateway } from 'src/modules/chat/gateway/chat.gateway';
 import { User } from 'src/modules/user/entity/user.entity';
 import { paginate, Pagination, IPaginationOptions } from 'nestjs-typeorm-paginate';
+import { ResponseData } from 'src/layout/auth/constant';
 
 @Injectable()
 export class MessageService {
@@ -20,19 +21,19 @@ export class MessageService {
         private gateway: ChatGateway
     ) { }
 
-    async createMessage(data: CreateMessageDTO): Promise<MessageResponseDTO> {
+    async createMessage(data: CreateMessageDTO): Promise<ResponseData> {
         const { to, from } = data;
         await this.checkIfUsersExist(from, to);
         const message = this.messageRepository.create(data);
-        const token = await this.getRecipientToken(to);
+        const token = await this.getRecipientToken(from);
         const messageResponseObject = message.toResponseObject();
         if (token) {
             await this.gateway.server.emit(token, messageResponseObject);
         }
         message.delivered = true;
         message.seen = false;
-        await this.messageRepository.save(message);
-        return messageResponseObject;
+        const returnData = await this.messageRepository.save(message);
+        return { result: returnData, message: 'success', statusCode: HttpStatus.OK };
     }
 
     private async getRecipientToken(email: string): Promise<boolean> {
@@ -59,7 +60,7 @@ export class MessageService {
         } else {
             queryBuilder
                 .where('message.from = :from and message.to = :to', { from: user, to: convoWith })
-                .orderBy('message.createdDate', 'DESC');
+                .orderBy('message.createdDate', 'ASC');
         }
         const messages = await paginate<MessageEntity>(queryBuilder, options);
 

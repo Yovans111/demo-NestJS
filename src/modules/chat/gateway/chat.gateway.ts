@@ -4,6 +4,7 @@ import { Message, User_chat } from '../dto/chat/chat.interface';
 import { Chat } from '../entity/chat.entity';
 import { ChatService } from '../service/chat.service';
 import { Logger } from '@nestjs/common';
+import { MessageService } from 'src/modules/message/service/message.service';
 
 
 @WebSocketGateway({
