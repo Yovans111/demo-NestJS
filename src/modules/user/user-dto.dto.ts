@@ -20,10 +20,9 @@ export class userData {
     @IsOptional()
     age?: number
 
-    // @ApiProperty({required:false})
-    // // @IsDate()
-    // @IsOptional()
-    // dob?: string
+    @ApiProperty({required:false})
+    @IsOptional()
+    profile_img?: string
 
     @ApiProperty({ required: false, description: 'For Update Only' })
     @IsOptional()

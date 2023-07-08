@@ -29,6 +29,7 @@ export class UserService {
             return this.usersRepository.save(data);
         }
     }
+    
     async getById(id: any): Promise<User | any> {
         // const q = await this.dataSource.query('SELECT user.id , user.name ,user.email_id,user.age  FROM `demo`.`user` as user WHERE user.id = 1 ')
         const d = await this.usersRepository.findOneBy(id);

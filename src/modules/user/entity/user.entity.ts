@@ -16,4 +16,7 @@ export class User {
 
     @Column()
     age: number
+
+    @Column()
+    profile_img: string
 }
