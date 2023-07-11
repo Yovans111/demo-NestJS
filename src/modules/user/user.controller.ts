@@ -1,12 +1,12 @@
-import { BadRequestException, Body, Controller, Get, HttpException, MaxFileSizeValidator, Param, ParseFilePipe, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Body, Controller, Get, MaxFileSizeValidator, Param, ParseFilePipe, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
+import { diskStorage } from 'multer';
+import { responseUrl } from 'src/layout/auth/constant';
 import { User } from './entity/user.entity';
 import { userData } from './user-dto.dto';
 import { UserService } from './user.service';
-import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { Response, response } from 'express';
 
 @ApiBearerAuth('JWT-auth')
 @ApiTags('User')
@@ -61,7 +61,7 @@ export class UserController {
             throw new BadRequestException('File is not a image')
         } else {
             const response = {
-                filePath: `https://localhost:3000/api/user/getFile/${file.filename}`,
+                filePath: `${responseUrl}/user/getFile/${file.filename}`,
                 fileName: file.filename
             }
             return response
@@ -71,5 +71,10 @@ export class UserController {
     @Get('getFile/:filename')
     getFile(@Param('filename') filename, @Res() response: Response) {
         response.sendFile(filename, { root: './src/assets/upload' })
+        //for Delete File
+        // fs.unlink(`./src/assets/upload/${filename}`,(err) => {
+        //     console.log(err)
+        // })
+        // response.send('success').status(200).end()
     }
 }
