@@ -33,6 +33,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   @SubscribeMessage('sendMessage')
   async handleSendMessage(client: Socket, payload: Chat): Promise<void> {
+    console.log('received',client.id,payload);
     await this.chatService.createMessage(payload);
     this.server.emit('recMessage', payload);
   }
