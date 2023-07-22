@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, MaxFileSizeValidator, Param, ParseFilePipe, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, MaxFileSizeValidator, Param, ParseFilePipe, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -76,5 +76,28 @@ export class UserController {
         //     console.log(err)
         // })
         // response.send('success').status(200).end()
+    }
+
+
+    @Post('upload-kml')
+    @UseInterceptors(FileInterceptor('file',{
+        storage: diskStorage({
+            destination: './src/assets',
+            filename: (req, file, callback) => {
+                const name = file.originalname
+                callback(null, name)
+            },
+        }),
+    }),)
+    async uploadKml(@UploadedFile() file: Express.Multer.File) {
+      try {
+        // Assuming you have previously defined the output folder path
+        const outputFolderPath = './src/assets/upload';
+          await this.userService.extractKmlFile(file.path, outputFolderPath)
+        return { message: 'File uploaded and data extracted successfully!' };
+      } catch (error) {
+        console.error('Error uploading and processing KML file:', error);
+        throw new InternalServerErrorException('Error processing KML file.');
+      }
     }
 }
