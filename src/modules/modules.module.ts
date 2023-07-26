@@ -9,15 +9,15 @@ import { MessageModule } from './message/message.module';
 
 const Route: Routes = [
     {
-        path: 'api/' + 'user',
+        path: 'user',
         module: UserModule
     },
     {
-        path: 'api/' + 'chat',
+        path: 'chat',
         module: ChatModule
     },
     {
-        path: 'api/' + 'message',
+        path: 'message',
         module: MessageModule
     },
 ]

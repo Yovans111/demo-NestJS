@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, HttpCode, Post, Request } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpCode, Post, Request, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RESPONSE_CODE } from './constant';
 import { ApiTags } from '@nestjs/swagger';
 import { logInData, logInReturnData } from './dto/auth.dto';
+import { SocketGuard } from 'src/guards/socket/socket.guard';
 
 @ApiTags('Auth')
 @Controller('auth')

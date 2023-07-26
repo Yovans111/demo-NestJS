@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { RouterModule } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -8,6 +8,7 @@ import { User } from './modules/user/entity/user.entity';
 import { ModulesModule } from './modules/modules.module';
 import { Chat } from './modules/chat/entity/chat.entity';
 import { MessageEntity } from './modules/message/message.entity';
+import { LoginMiddleware } from './middleware/login/login.middleware';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -23,7 +24,7 @@ import { MessageEntity } from './modules/message/message.entity';
     }),
     RouterModule.register([
       {
-        path: 'api',
+        path: '',
         module: AuthModule,
       },
       {
@@ -34,4 +35,11 @@ import { MessageEntity } from './modules/message/message.entity';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule implements NestModule { 
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoginMiddleware)
+      .exclude('/auth/login')
+      .forRoutes('*'); // ('*') applies the middleware to all routes, or you can specify specific routes here.
+  }
+}

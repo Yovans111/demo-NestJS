@@ -8,6 +8,7 @@ import { Server } from "socket.io";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.setGlobalPrefix("api/v1");
 
   const config = new DocumentBuilder()
     .setTitle('Demo Swagger')

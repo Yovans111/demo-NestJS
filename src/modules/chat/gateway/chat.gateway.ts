@@ -1,10 +1,11 @@
+import { Logger, UseGuards } from '@nestjs/common';
 import { MessageBody, OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Message, User_chat } from '../dto/chat/chat.interface';
 import { Chat } from '../entity/chat.entity';
+import { AzurecommunicationService } from '../service/azurecommunication/azurecommunication.service';
 import { ChatService } from '../service/chat.service';
-import { Logger } from '@nestjs/common';
-import { MessageService } from 'src/modules/message/service/message.service';
+import { SocketGuard } from 'src/guards/socket/socket.guard';
 
 
 @WebSocketGateway({
@@ -16,7 +17,7 @@ import { MessageService } from 'src/modules/message/service/message.service';
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
 
   private logger = new Logger('gateway')
-  constructor(private chatService: ChatService) { }
+  constructor(private chatService: ChatService,private azureService:AzurecommunicationService) { }
 
   @WebSocketServer() server: Server | any
 
@@ -31,16 +32,19 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     // console.log('AfterInit', server);
   }
 
+  // @UseGuards(SocketGuard)
   @SubscribeMessage('sendMessage')
   async handleSendMessage(client: Socket, payload: Chat): Promise<void> {
-    console.log('received',client.id,payload);
-    await this.chatService.createMessage(payload);
+    // console.log('received',client.id,payload);
+    this.azureService.createChatThread();
+    // this.azureService.createChatThread('Demo')
+    // await this.chatService.createMessage(payload);
     this.server.emit('recMessage', payload);
   }
 
 
   //For Room Chat
-
+  
   @SubscribeMessage('join_room')
   async handleSetClientDataEvent(client: Socket, payload: { roomName: string, user: User_chat }) {
     if (payload?.user.socketId) {

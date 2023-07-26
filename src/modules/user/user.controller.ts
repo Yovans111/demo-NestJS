@@ -93,7 +93,7 @@ export class UserController {
       try {
         // Assuming you have previously defined the output folder path
         const outputFolderPath = './src/assets/upload';
-          await this.userService.extractKmlFile(file.path, outputFolderPath)
+        //   await this.userService.extractKmlFile(file.path, outputFolderPath)
         return { message: 'File uploaded and data extracted successfully!' };
       } catch (error) {
         console.error('Error uploading and processing KML file:', error);

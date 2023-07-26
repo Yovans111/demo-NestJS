@@ -38,9 +38,16 @@ export class AuthService {
     }
 
     async loginTokenGenerate(user: any) {
-        const payload = { email_id: user.email_id, password: user.password };
+        const payload = { email_id: user.email_id };
         return {
             access_token: this.jwtService.sign(payload),
         };
+    }
+    verifyToken(token: string): any {
+        try {
+            return this.jwtService.verify(token);
+        } catch (error) {
+            return null; // Token is invalid or expired
+        }
     }
 }
