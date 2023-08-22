@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import * as xmljs from 'xml-js';
 import * as xml2js from 'xml2js';
 import * as fs from 'fs';
+import { json } from 'stream/consumers';
 
 
 @Injectable()
@@ -237,7 +238,7 @@ export class UserService {
                 },
             };
 
-            console.log('kmlObject',dataList)
+            console.log('kmlObject', dataList)
             // Convert the KML object back to XML format
             const builder = new xml2js.Builder();
             const kmlData = builder.buildObject(kmlObject);
@@ -250,6 +251,154 @@ export class UserService {
             console.error('Error creating KML file:', error);
         }
     }
+
+
+    //Json Extraction
+
+    private createFolderForJson(basePath: string, folderName: string): string {
+        const folderPath = `${basePath}/${folderName}`;
+        if (!existsSync(folderPath)) {
+            mkdirSync(folderPath, { recursive: true });
+        }
+        return folderPath;
+    }
+    private writeJsonFile(folderPath: string, fileName: string, jsonData: any) {
+        const jsonString = JSON.stringify(jsonData, null, 2);
+        return writeFileSync(`${folderPath}/${fileName}.json`, jsonString);
+    }
+
+    async getJsonVillageData(inputfilePath: string, outFilePath: string, config: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' = 'VIL') {
+        const fsEx = require('fs-extra'),
+            jsonData = await fsEx.readJson(inputfilePath), outputFolderPath = outFilePath;
+        let finalJson: any = {};
+        jsonData?.features.forEach((a: any) => {
+            let distName: string = this.replaceSpeChar(a?.properties?.[config?.distName]),
+                stateName: string = this.replaceSpeChar(a?.properties?.[config?.stateName]),
+                subDistName: string = this.replaceSpeChar(a?.properties?.[config?.subDistName]),
+                villageName: string = this.replaceSpeChar(a?.properties?.[config?.villageName]);
+            finalJson = this.createJsonData(a);
+            const statePath = this.createFolderForJson(outputFolderPath, stateName?.toLowerCase()); // folder by sytate state
+            if (level == 'STATE') {
+                this.writeJsonFile(`${statePath}`, stateName?.toLowerCase(), finalJson);
+                return
+            }
+            const distPath = this.createFolderForJson(statePath, distName?.toLowerCase()); //folder by dist Name
+            if (level == 'DIST') {
+                this.writeJsonFile(`${distPath}`, distName?.toLowerCase(), finalJson);
+                return
+            }
+            const subdistPath = this.createFolderForJson(`${distPath}`, subDistName?.toLowerCase()); //folder by sub dist 
+            if (level == 'SUBDIST') {
+                this.writeJsonFile(`${subdistPath}`, subDistName?.toLowerCase(), finalJson);
+                return
+            }
+            const villagePath = this.createFolderForJson(`${subdistPath}`, 'village'); //folder by sub dist 
+            this.writeJsonFile(`${villagePath}`, villageName?.toLowerCase(), finalJson);
+        })
+    }
+
+    replaceSpeChar(str: string): string {
+        const specialCharPattern = /[!@#$%^&*()+{}\[\]:;<>,.?~\\\=]/g;
+        if (specialCharPattern.test(str)) {
+            return str.replace(specialCharPattern, '')
+        }
+        return str
+    }
+
+    //join multiple json file into single file
+    async convertToSinglejson(inputfilePath: any, filesNames?: Array<string>) {
+        let features = []
+        filesNames = ['1.json', '2.json', '3.json', '4.json']
+        const fsEx = require('fs-extra');
+        if (!filesNames?.length) {
+            filesNames = await this.readFilesFromFolder(inputfilePath)
+        }
+        //for test delete exsit data 
+        fs.unlink('./src/assets/rawValidJson/totalvillage.json', (err: any) => { })
+        await filesNames.forEach(async (fN: any) => {
+            // for (const fN of filesNames) {
+            let data = await fsEx.readJson(`${inputfilePath}/${fN}`)
+            if (typeof data == 'string') {
+                data = JSON.parse(data);
+            }
+            features = [];
+            data?.features?.forEach((a: any, i) => {
+                let f = {
+                    type: 'Feature',
+                    geometry: a?.geometry,
+                    properties: a?.attributes
+                }
+                // if (!a?.properties) {
+                //     f.properties = a?.attributes
+                // }
+                f.geometry.coordinates = a?.geometry.rings
+                f.geometry.type = 'Polygon'
+                delete f?.geometry.rings
+                features.push(f);
+                // delete data?.features[i]
+                // return f
+            })
+            this.appendToJsonFile('./src/assets/rawValidJson/totalvillage.json', features)
+            data = [];
+        });
+        // if (this.isFileExist('./src/assets/rawValidJson/totalvillage.json')) {
+        //     let rJ = fsEx.readJson('./src/assets/rawValidJson/totalvillage.json');
+        //     const validJson = this.createJsonData(rJ)
+        //     this.writeJsonFile('./src/assets/rawValidJson', 'totalvillage', validJson)
+        //     rJ = []
+        // }
+    }
+    async appendToJsonFile(filePath, newData) {
+        try {
+            const fsEx = require('fs-extra');
+            let existData = []
+            let eF = await this.isFileExist('./src/assets/rawValidJson/totalvillage.json')
+            if (eF) {
+                existData = await fsEx.readJson('./src/assets/rawValidJson/totalvillage.json');
+                console.log('Before existData =>', existData.length)
+            }
+            existData = !eF ? newData : [...existData, ...newData];
+            console.log('After Merge =>', existData.length)
+            await this.writeJsonFile('./src/assets/rawValidJson', 'totalvillage', existData)
+        } catch (error) {
+            console.error(`Error appending data to ${filePath}:`, error);
+        }
+    }
+    async isFileExist(path: any) {
+        return new Promise(async (resolve, reject) => {
+            if (existsSync(path)) {
+                resolve(true)
+            } else {
+                resolve(false)
+            }
+        })
+    }
+
+    readFilesFromFolder(folderPath: string): Promise<Array<string>> {
+        const fsEx = require('fs-extra');
+        return new Promise((resolve, reject) => {
+            fsEx.readdir(folderPath, (err, files) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(files);
+                }
+            });
+        });
+    }
+
+    createJsonData(data) {
+        return new FeatureCollection(data)
+    }
+
 }
-
-
+export class FeatureCollection {
+    type: any;
+    constructor(public features: Array<any>) {
+        this.type = {
+            type: "FeatureCollection",
+            features: !Array.isArray(features) ? [this.features] : this.features
+        }
+        return this.type;
+    }
+}

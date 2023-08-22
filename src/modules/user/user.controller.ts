@@ -19,8 +19,21 @@ export class UserController {
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Get('get')
     getHello(): any {
-        return this.userService.getUserData();
+        
+            const inpath = `src/assets/rawjsonData/all`
+           return this.userService.convertToSinglejson(inpath)
+        // return this.userService.getUserData();
     }
+
+    @Get('village')
+    getVillage() {
+        const villconfig = { stateName: 'STNAME', distName: 'DTNAME', subDistName: 'SDTNAME', villageName: 'VILNAM_SOI' },
+            otherConfig = { stateName: 'stname', distName: 'dtname', subDistName: 'sdtname', villageName: 'VILNAM_SOI' },
+            config = villconfig,
+            inpath = 'src/assets/json/delhi/DELHI_STATE.json', outPath = './src/assets/map'
+        return this.userService.getJsonVillageData(inpath, outPath, config, 'STATE');
+    }
+
 
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Post('save')
@@ -80,7 +93,7 @@ export class UserController {
 
 
     @Post('upload-kml')
-    @UseInterceptors(FileInterceptor('file',{
+    @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
             destination: './src/assets',
             filename: (req, file, callback) => {
@@ -90,14 +103,15 @@ export class UserController {
         }),
     }),)
     async uploadKml(@UploadedFile() file: Express.Multer.File) {
-      try {
-        // Assuming you have previously defined the output folder path
-        const outputFolderPath = './src/assets/upload';
-        //   await this.userService.extractKmlFile(file.path, outputFolderPath)
-        return { message: 'File uploaded and data extracted successfully!' };
-      } catch (error) {
-        console.error('Error uploading and processing KML file:', error);
-        throw new InternalServerErrorException('Error processing KML file.');
-      }
+        try {
+            // return this.userService.getJsonData(); // Json extraction
+            // // Assuming you have previously defined the output folder path
+            const outputFolderPath = './src/assets/upload';
+            await this.userService.extractKmlFile(file.path, outputFolderPath)
+            return { message: 'File uploaded and data extracted successfully!' };
+        } catch (error) {
+            console.error('Error uploading and processing KML file:', error);
+            throw new InternalServerErrorException('Error processing KML file.');
+        }
     }
 }

@@ -1,7 +1,8 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
 import { join } from 'path';
 import { Server } from "socket.io";
 
@@ -9,6 +10,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.setGlobalPrefix("api/v1");
+
+  // const se = app.getHttpServer(); // this is for extend the Http request time to 3 minutes
+  // se.timeout = 180000;
 
   const config = new DocumentBuilder()
     .setTitle('Demo Swagger')

@@ -1,34 +1,43 @@
-import { ChatClient, CreateChatThreadOptions } from '@azure/communication-chat';
-import { AzureCommunicationTokenCredential } from '@azure/communication-common';
+import { ChatClient, ChatThreadClient, CreateChatThreadOptions, SendMessageOptions ,} from '@azure/communication-chat';
+import { AzureCommunicationTokenCredential, } from '@azure/communication-common';
 import { Injectable } from '@nestjs/common';
-import { AccessToken, DefaultAzureCredential } from '@azure/identity';
-import { CommunicationIdentityClient } from '@azure/communication-administration';
-import { azureConfig } from 'src/layout/auth/constant';
+import { AccessToken, DefaultAzureCredential, } from '@azure/identity';
+import { azureConfig, } from 'src/layout/auth/constant';
 import { RestError } from '@azure/storage-blob';
+import { CommunicationIdentityClient, CommunicationUserToken, } from '@azure/communication-identity';
 
 
 @Injectable()
 export class AzurecommunicationService {
     private chatClient: ChatClient;
+    userData: any;
+    chatThreadClient: ChatThreadClient
+    
 
     constructor() {
-        // this.getAccessToken()
-        this.chatInitial();
+        // this.chatInitial();
     }
     chatInitial() {
-        const chatServiceCredential = new AzureCommunicationTokenCredential(azureConfig.accessTokentemp)
-        this.chatClient = new ChatClient(azureConfig.endpoint, chatServiceCredential);
-        // this.createChatThread();
-        const defaultAzureCredential = new DefaultAzureCredential();
-        // const chatClient = new ChatClientBuilder()
-        //     .endpoint('your_endpoint_url')
-        //     .credential(defaultAzureCredential)
-        //     .build();
+        // const chatServiceCredential = new AzureCommunicationTokenCredential(azureConfig.accessTokentemp)
+        // this.chatClient = new ChatClient(azureConfig.endpoint, chatServiceCredential);
+        this.getUserToken(azureConfig.connectionString).then((data: any) => {
+            const tokenCredential = new AzureCommunicationTokenCredential({
+                tokenRefresher: async (abortSignal) => data.token,
+            });
+            this.chatClient = new ChatClient(azureConfig.endpoint, tokenCredential);
+            this.createChatThread();
+        })
+    }
+
+    private async getUserToken(connectionString: string): Promise<any> {
+        const identityClient = new CommunicationIdentityClient(connectionString);
+        const userToken = await identityClient.createUserAndToken(["chat"]);
+        this.userData = userToken?.user;
+        return { token: userToken?.token, userId: userToken?.user.communicationUserId };
     }
 
     async createChatThread(topic: any = 'Demo', participants?: any) {
         try {
-            // const chatclient = await this.createChatClient()
             console.log('Azure Communication Chat client created')
             const request = { topic: topic },
                 parti = [
@@ -42,37 +51,70 @@ export class AzurecommunicationService {
                     }
                 ],
                 options: CreateChatThreadOptions = { participants: parti },
-                result = await this.chatClient.createChatThread(request),
-                threadId = result?.chatThread.id;
-            console.log('threadId', threadId)
+                result = await this.chatClient.createChatThread(request, options),
+                threadId = result?.chatThread.id
+            this.chatThreadClient = await this.chatClient.getChatThreadClient(threadId || "");
+            // this.sendMessage()
+            // this.getChatThreadList()
+            // this.receivedMessage()
+            // console.log('threadId', threadId)
             return threadId
         } catch (error) {
-            if (error instanceof RestError) {
-                console.error('Azure Communication Services Error:', error.message);
-                console.error('Error Code:', error.code);
-
-                // if (error.code === 400) {
-                //   // Handle a bad request error (e.g., invalid payload)
-                // }
-            }
-            console.error('Error Details:', error);
+            console.error('Error Details:', error.response);
         }
     }
 
-    async getAccessToken() {
-        const { CommunicationIdentityClient } = require('@azure/communication-identity');
+    async sendMessage() {
+        const Request = { content: 'Hello ! Can you share the deck for the conference?' },
+            options: SendMessageOptions = {
+                senderDisplayName: "Jack",
+                type: 'text'
+            };
+        const sendChatMessageResult = await this.chatThreadClient.sendMessage(Request, options);
+        const messageId = sendChatMessageResult.id;
+        const messages = this.chatThreadClient.listMessages();
+        for await (const message of messages) {
+            console.log(`Chat Thread message :${message.content.message}`)
+            const b = message.content?.participants
+            if (Array.isArray(b)) {
+                for (let a of b) {
+                    // console.log(`Chat Thread message participant:${a.displayName}`);
+                }
+            }
+        }
+    }
+
+    async receivedMessage() {
+        // let lastReceivedTime = null;
+        // while (true) {
+        //     const messages = this.chatThreadClient.listMessages({ startTime: lastReceivedTime, maxPageSize: 10 });
+        //     for await (const message of messages) {
+        //         console.log(`Chat Thread message id:${message.content.message}`);
+        //         lastReceivedTime = message.createdOn;
+        //     }
+        // await new Promise(resolve => setTimeout(resolve, 5000));
+        // }
+        // this.chatClient.startRealtimeNotifications();
+        // this.chatClient.on("chatMessageReceived", async (e) => {
+        //     console.log("Notification chatMessageReceived!", e);
+        // });
+    }
+    async getChatThreadList() {
+        const threads = this.chatClient.listChatThreads();
+        for await (const thread of threads) {
+            console.log(`Chat Thread item:${thread.id}`);
+        }
+    }
+    async getAccessToken(connectionString: any): Promise<any> {
         const credential = new DefaultAzureCredential(),
-            connectionString = azureConfig.connectionString,
+            // connectionString = azureConfig.connectionString,
             identityClient = new CommunicationIdentityClient(connectionString);
         let identityResponse = await identityClient.createUser();
         console.log(`\nCreated an identity with ID: ${identityResponse.communicationUserId}`);
         let tokenResponse = await identityClient.getToken(identityResponse, ["voip"]);
         const { token, expiresOn } = tokenResponse;
-        // console.log(`\nIssued an access token with 'voip' scope that expires at ${expiresOn}:`);
-        // console.log(token);
-        azureConfig.accessTokentemp = await token;
-        return token
+        return { token: token, userId: identityResponse.communicationUserId }
     }
-   
+
 
 }
