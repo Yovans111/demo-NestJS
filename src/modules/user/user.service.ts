@@ -369,63 +369,7 @@ export class UserService {
     }
 
     async toFeatureCollection() {
-        // const fs = require('fs');
-        const geojsonStream = require('geojson-stream');
-        const readline = require('readline');
-        const inputFilePath = './src/assets/rawValidJson/totalvillage.json'; // Replace with your file path
-        const outputFilePath = './src/assets/rawValidJson/indiavillage.json';
-        const inputStream = fs.createReadStream(inputFilePath, 'utf8');
-        // Create a writable stream for GeoJSON output
-        const outputStream = fs.createWriteStream(outputFilePath);
-        // Create a GeoJSON Feature Collection
-        const featureCollection = { type: 'FeatureCollection', features: [] };
-        // Parse JSON data from the input stream and convert to GeoJSON
-        // const parseStream = await inputStream.pipe(geojsonStream.parse())
-        const rl = readline.createInterface({
-            input: inputStream,
-            output: process.stdout,
-            terminal: false
-        });
-        rl.on('line', (line) => {
-            try {
-                if (typeof line == 'string') {
-                    const feature = JSON.parse(line);
-                    featureCollection.features.push(feature)
-                }
-            } catch (error) {
-                console.error('Error writing output file:', error);
-            }
-        });
-        rl.on('close', () => {
-            fs.writeFile(outputFilePath, JSON.stringify(featureCollection, null, 2), 'utf8', (err) => {
-                if (err) {
-                    console.error('Error writing output file:', err);
-                } else {
-                    console.log('Conversion completed.')
-                }
-            });
-        });
-        // parseStream?.on('data', (feature) => {
-        //     console.log('Parsed feature:', feature);
-        // });
-        // for await (const feature of parseStream) {
-        //     featureCollection.features.push(feature);
-        // }
-        // outputStream.write(JSON.stringify(featureCollection, null, 2), 'utf8');
-        // await fs.writeFile(outputFilePath, JSON.stringify(featureCollection, null, 2), 'utf8');
-        console.log('Conversion completed.');
-        // .on('data', (feature) => {
-        //     featureCollection.features.push(feature);
-        // })
-        // .on('end', () => {
-        //     // Write the Feature Collection to the output GeoJSON file
-        //     outputStream.write(JSON.stringify(featureCollection, null, 2), 'utf8');
-        //     outputStream.end();
-        //     console.log('Conversion completed.');
-        // })
-        // .on('error', (error) => {
-        //     console.error('Error converting data:', error);
-        // });
+       
 
     }
     readFilesFromFolder(folderPath: string): Promise<Array<string>> {
