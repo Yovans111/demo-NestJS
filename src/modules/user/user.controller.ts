@@ -27,11 +27,11 @@ export class UserController {
 
     @Get('village')
     getVillage() {
-        const villconfig = { stateName: 'STNAME', distName: 'DTNAME', subDistName: 'SDTNAME', villageName: 'VILNAM_SOI' },
+        const villconfig = { stateName: 'STATE', distName: 'DISTRICT', subDistName: 'SUB_DIST_CODE', villageName: 'NAME' },
             otherConfig = { stateName: 'stname', distName: 'dtname', subDistName: 'sdtname', villageName: 'VILNAM_SOI' },
-            config = villconfig,
-            inpath = 'src/assets/json/delhi/DELHI_STATE.json', outPath = './src/assets/map'
-        return this.userService.getJsonVillageData(inpath, outPath, config, 'STATE');
+            config = otherConfig,
+            inpath = 'src/assets/json/rajasthan/RAJASTHAN_DISTRICTS.json', outPath = './src/assets/map'
+        return this.userService.getJsonVillageData(inpath, outPath, config, 'DIST');
     }
 
 

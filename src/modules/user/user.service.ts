@@ -4,11 +4,11 @@ import { User } from './entity/user.entity';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Connection } from 'mysql2/typings/mysql/lib/Connection';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlink, appendFile, appendFileSync } from 'fs';
 import * as xmljs from 'xml-js';
 import * as xml2js from 'xml2js';
 import * as fs from 'fs';
-import { json } from 'stream/consumers';
+const fsEx = require('fs-extra');
 
 
 @Injectable()
@@ -298,7 +298,7 @@ export class UserService {
     }
 
     replaceSpeChar(str: string): string {
-        const specialCharPattern = /[!@#$%^&*()+{}\[\]:;<>,.?~\\\=]/g;
+        const specialCharPattern = /[!@#$%^&*()|/+{}\[\]:;<>,.?~\\\=]/g;
         if (specialCharPattern.test(str)) {
             return str.replace(specialCharPattern, '')
         }
@@ -307,16 +307,15 @@ export class UserService {
 
     //join multiple json file into single file
     async convertToSinglejson(inputfilePath: any, filesNames?: Array<string>) {
+        this.toFeatureCollection()
+        return
         let features = []
-        filesNames = ['1.json', '2.json', '3.json', '4.json']
-        const fsEx = require('fs-extra');
         if (!filesNames?.length) {
             filesNames = await this.readFilesFromFolder(inputfilePath)
         }
         //for test delete exsit data 
-        fs.unlink('./src/assets/rawValidJson/totalvillage.json', (err: any) => { })
+        //    await unlink('./src/assets/rawValidJson/totalvillage.json', (err: any) => { })
         await filesNames.forEach(async (fN: any) => {
-            // for (const fN of filesNames) {
             let data = await fsEx.readJson(`${inputfilePath}/${fN}`)
             if (typeof data == 'string') {
                 data = JSON.parse(data);
@@ -335,12 +334,10 @@ export class UserService {
                 f.geometry.type = 'Polygon'
                 delete f?.geometry.rings
                 features.push(f);
-                // delete data?.features[i]
-                // return f
             })
             this.appendToJsonFile('./src/assets/rawValidJson/totalvillage.json', features)
             data = [];
-        });
+        })
         // if (this.isFileExist('./src/assets/rawValidJson/totalvillage.json')) {
         //     let rJ = fsEx.readJson('./src/assets/rawValidJson/totalvillage.json');
         //     const validJson = this.createJsonData(rJ)
@@ -350,16 +347,13 @@ export class UserService {
     }
     async appendToJsonFile(filePath, newData) {
         try {
-            const fsEx = require('fs-extra');
-            let existData = []
-            let eF = await this.isFileExist('./src/assets/rawValidJson/totalvillage.json')
+            let eF = await this.isFileExist(filePath)
             if (eF) {
-                existData = await fsEx.readJson('./src/assets/rawValidJson/totalvillage.json');
-                console.log('Before existData =>', existData.length)
+                const jsonString = JSON.stringify(newData, null, 2);
+                appendFile(filePath, jsonString, (err) => { })
+            } else {
+                await this.writeJsonFile('./src/assets/rawValidJson', 'totalvillage', newData)
             }
-            existData = !eF ? newData : [...existData, ...newData];
-            console.log('After Merge =>', existData.length)
-            await this.writeJsonFile('./src/assets/rawValidJson', 'totalvillage', existData)
         } catch (error) {
             console.error(`Error appending data to ${filePath}:`, error);
         }
@@ -374,8 +368,67 @@ export class UserService {
         })
     }
 
+    async toFeatureCollection() {
+        // const fs = require('fs');
+        const geojsonStream = require('geojson-stream');
+        const readline = require('readline');
+        const inputFilePath = './src/assets/rawValidJson/totalvillage.json'; // Replace with your file path
+        const outputFilePath = './src/assets/rawValidJson/indiavillage.json';
+        const inputStream = fs.createReadStream(inputFilePath, 'utf8');
+        // Create a writable stream for GeoJSON output
+        const outputStream = fs.createWriteStream(outputFilePath);
+        // Create a GeoJSON Feature Collection
+        const featureCollection = { type: 'FeatureCollection', features: [] };
+        // Parse JSON data from the input stream and convert to GeoJSON
+        // const parseStream = await inputStream.pipe(geojsonStream.parse())
+        const rl = readline.createInterface({
+            input: inputStream,
+            output: process.stdout,
+            terminal: false
+        });
+        rl.on('line', (line) => {
+            try {
+                if (typeof line == 'string') {
+                    const feature = JSON.parse(line);
+                    featureCollection.features.push(feature)
+                }
+            } catch (error) {
+                console.error('Error writing output file:', error);
+            }
+        });
+        rl.on('close', () => {
+            fs.writeFile(outputFilePath, JSON.stringify(featureCollection, null, 2), 'utf8', (err) => {
+                if (err) {
+                    console.error('Error writing output file:', err);
+                } else {
+                    console.log('Conversion completed.')
+                }
+            });
+        });
+        // parseStream?.on('data', (feature) => {
+        //     console.log('Parsed feature:', feature);
+        // });
+        // for await (const feature of parseStream) {
+        //     featureCollection.features.push(feature);
+        // }
+        // outputStream.write(JSON.stringify(featureCollection, null, 2), 'utf8');
+        // await fs.writeFile(outputFilePath, JSON.stringify(featureCollection, null, 2), 'utf8');
+        console.log('Conversion completed.');
+        // .on('data', (feature) => {
+        //     featureCollection.features.push(feature);
+        // })
+        // .on('end', () => {
+        //     // Write the Feature Collection to the output GeoJSON file
+        //     outputStream.write(JSON.stringify(featureCollection, null, 2), 'utf8');
+        //     outputStream.end();
+        //     console.log('Conversion completed.');
+        // })
+        // .on('error', (error) => {
+        //     console.error('Error converting data:', error);
+        // });
+
+    }
     readFilesFromFolder(folderPath: string): Promise<Array<string>> {
-        const fsEx = require('fs-extra');
         return new Promise((resolve, reject) => {
             fsEx.readdir(folderPath, (err, files) => {
                 if (err) {
