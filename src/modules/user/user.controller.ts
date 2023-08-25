@@ -19,19 +19,27 @@ export class UserController {
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Get('get')
     getHello(): any {
-        
-            const inpath = `src/assets/rawjsonData/all`
-           return this.userService.convertToSinglejson(inpath)
+
+        const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
+        return this.userService.readLargeJson(inpath, outpath);
+        // const inpath = 'src/assets/rawJsonData', outpath = './src/assets/rawValidJson'
+        // return this.userService.convertToSinglejson(inpath)
         // return this.userService.getUserData();
+    }
+    @Get('index')
+    getIndex(): any {
+        const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
+        return this.userService.createIndexByVillage(inpath, outpath);
     }
 
     @Get('village')
     getVillage() {
-        const villconfig = { stateName: 'STATE', distName: 'DISTRICT', subDistName: 'SUB_DIST_CODE', villageName: 'NAME' },
-            otherConfig = { stateName: 'stname', distName: 'dtname', subDistName: 'sdtname', villageName: 'VILNAM_SOI' },
+        const villconfig = { stateName: 'stname', distName: 'dtname', subDistName: 'SUB_DIST_CODE', villageName: 'NAME' },
+            otherConfig = { countryName: 'country', stateName: 'state', distName: 'district', subDistName: 'name', villageName: 'name', wardName: 'sourcewardname', cityName: 'townname', wardNo: 'sourcewardcode' },
             config = otherConfig,
-            inpath = 'src/assets/json/rajasthan/RAJASTHAN_DISTRICTS.json', outPath = './src/assets/map'
-        return this.userService.getJsonVillageData(inpath, outPath, config, 'DIST');
+            inpath = 'src/assets/json/fullvillage/Uttar Pradesh_village.json', outPath = './src/assets/india_village/india'
+        return this.userService.getJsonVillageData(inpath, outPath, config, 'VIL');
+        // return this.userService.readJsonDataByfolder(inpath, outPath, config, 'VIL') // pass the folder path only
     }
 
 

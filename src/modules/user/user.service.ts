@@ -1,13 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ReturnAllUser, userData } from './user-dto.dto';
-import { User } from './entity/user.entity';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import * as fs from 'fs';
+import { appendFile, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DataSource, Repository } from 'typeorm';
-import { Connection } from 'mysql2/typings/mysql/lib/Connection';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlink, appendFile, appendFileSync } from 'fs';
 import * as xmljs from 'xml-js';
 import * as xml2js from 'xml2js';
-import * as fs from 'fs';
+import { User } from './entity/user.entity';
+import { ReturnAllUser, userData } from './user-dto.dto';
 const fsEx = require('fs-extra');
 
 
@@ -267,92 +266,172 @@ export class UserService {
         return writeFileSync(`${folderPath}/${fileName}.json`, jsonString);
     }
 
-    async getJsonVillageData(inputfilePath: string, outFilePath: string, config: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' = 'VIL') {
-        const fsEx = require('fs-extra'),
-            jsonData = await fsEx.readJson(inputfilePath), outputFolderPath = outFilePath;
-        let finalJson: any = {};
+    async getJsonVillageData(inputfilePath: string, outFilePath: string, config: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY' | 'CITY' | 'WARD' = 'VIL') {
+        let jsonData: any = {}, finalJson: any = {};
+        jsonData = await fsEx.readJson(inputfilePath); let outputFolderPath = outFilePath;
         jsonData?.features.forEach((a: any) => {
             let distName: string = this.replaceSpeChar(a?.properties?.[config?.distName]),
                 stateName: string = this.replaceSpeChar(a?.properties?.[config?.stateName]),
                 subDistName: string = this.replaceSpeChar(a?.properties?.[config?.subDistName]),
-                villageName: string = this.replaceSpeChar(a?.properties?.[config?.villageName]);
+                villageName: string = this.replaceSpeChar(a?.properties?.[config?.villageName]),
+                countryName: string = this.replaceSpeChar(a?.properties?.[config?.countryName]),
+                cityName: string = this.replaceSpeChar(a?.properties?.[config?.cityName]) + '_city',
+                wardName: string = this.replaceSpeChar(a?.properties?.[config?.wardName]),
+                wardNo: string = this.replaceSpeChar(a?.properties?.[config?.wardNo]);
             finalJson = this.createJsonData(a);
-            const statePath = this.createFolderForJson(outputFolderPath, stateName?.toLowerCase()); // folder by sytate state
+            // const countryPath = this.createFolderForJson(outputFolderPath, countryName);
+            // if (level == 'COUNTRY') {
+            //     this.writeJsonFile(`${countryPath}`, countryName, finalJson)
+            //     console.log(`File for country ${countryName} created`)
+            //     return
+            // }
+            const statePath = this.createFolderForJson(outputFolderPath, stateName); // folder by sytate state
             if (level == 'STATE') {
-                this.writeJsonFile(`${statePath}`, stateName?.toLowerCase(), finalJson);
+                this.writeJsonFile(`${statePath}`, stateName, finalJson);
+                console.log(`File for state ${stateName}`);
                 return
             }
-            const distPath = this.createFolderForJson(statePath, distName?.toLowerCase()); //folder by dist Name
+            const distPath = this.createFolderForJson(statePath, distName); //folder by dist Name
             if (level == 'DIST') {
-                this.writeJsonFile(`${distPath}`, distName?.toLowerCase(), finalJson);
+                this.writeJsonFile(`${distPath}`, distName, finalJson);
+                console.log(`File for district ${distName} in ${stateName}`);
                 return
             }
-            const subdistPath = this.createFolderForJson(`${distPath}`, subDistName?.toLowerCase()); //folder by sub dist 
+            if (level == 'CITY' || level == 'WARD') {
+                const cityPath = this.createFolderForJson(`${distPath}`, cityName);
+                if (level == 'CITY') {
+                    this.writeJsonFile(`${cityPath}`, cityName, finalJson);
+                    console.log(`File for city ${cityName} in ${stateName}`);
+                    return
+                }
+                // const wardPath = this.createFolderForJson(`${cityPath}`, 'ward');
+                if (!wardName) {
+                    wardName = 'ward_no_' + wardNo;
+                } else {
+                    wardName = wardName + '_ward_no_' + wardNo;
+                }
+                const wardInvPath = this.createFolderForJson(`${cityPath}`, wardName);
+                if (level == 'WARD') {
+                    this.writeJsonFile(`${wardInvPath}`, wardName, finalJson);
+                    console.log(`File for ward ${wardName} in ${stateName}`);
+                    return
+                }
+            }
+            const subdistPath = this.createFolderForJson(`${distPath}`, subDistName); //folder by sub dist 
             if (level == 'SUBDIST') {
-                this.writeJsonFile(`${subdistPath}`, subDistName?.toLowerCase(), finalJson);
+                this.writeJsonFile(`${subdistPath}`, subDistName, finalJson);
+                console.log(`File for subdistrict ${subDistName} in ${stateName}`);
                 return
             }
-            const villagePath = this.createFolderForJson(`${subdistPath}`, 'village'); //folder by sub dist 
-            this.writeJsonFile(`${villagePath}`, villageName?.toLowerCase(), finalJson);
+            // const villagePath = this.createFolderForJson(`${subdistPath}`, 'village'); //folder by sub dist 
+            const villageInvPath = this.createFolderForJson(`${subdistPath}`, villageName);
+            this.writeJsonFile(`${villageInvPath}`, villageName, finalJson);
+            console.log(`File for village ${villageName} in ${stateName}`);
         })
     }
 
     replaceSpeChar(str: string): string {
-        const specialCharPattern = /[!@#$%^&*()|/+{}\[\]:;<>,.?~\\\=]/g;
+        const specialCharPattern = /[!@#\$%\^&*()_+|{}\[\]:;<>,.?~\\\-=/"']/g, consecutiveSpaces = /^\s+|\s+$|\s+(?=\s)/g, replacesingleSpace = /\s+/g;
         if (specialCharPattern.test(str)) {
-            return str.replace(specialCharPattern, '')
+            str = str.replace(specialCharPattern, '');
         }
-        return str
+        if (consecutiveSpaces.test(str)) {
+            str = str.replace(consecutiveSpaces, '')
+        }
+        if (replacesingleSpace.test(str)) {
+            str = str.replace(replacesingleSpace, '_')
+        }
+        return str?.toLowerCase();
     }
 
     //join multiple json file into single file
     async convertToSinglejson(inputfilePath: any, filesNames?: Array<string>) {
-        this.toFeatureCollection()
-        return
-        let features = []
+        let features = [], path = './src/assets/rawValidJson/tempFile.json'
+        filesNames = ['nagpur_ward.json'];
         if (!filesNames?.length) {
             filesNames = await this.readFilesFromFolder(inputfilePath)
         }
         //for test delete exsit data 
-        //    await unlink('./src/assets/rawValidJson/totalvillage.json', (err: any) => { })
-        await filesNames.forEach(async (fN: any) => {
+        // await unlink(path, (err: any) => { })
+        await filesNames.forEach(async (fN: any, i, arr) => {
             let data = await fsEx.readJson(`${inputfilePath}/${fN}`)
             if (typeof data == 'string') {
                 data = JSON.parse(data);
             }
-            features = [];
+            // features = [];
             data?.features?.forEach((a: any, i) => {
                 let f = {
                     type: 'Feature',
                     geometry: a?.geometry,
                     properties: a?.attributes
                 }
-                // if (!a?.properties) {
-                //     f.properties = a?.attributes
-                // }
                 f.geometry.coordinates = a?.geometry.rings
                 f.geometry.type = 'Polygon'
                 delete f?.geometry.rings
                 features.push(f);
             })
-            this.appendToJsonFile('./src/assets/rawValidJson/totalvillage.json', features)
-            data = [];
+            console.log('features =>', features?.length)
+            const valid = this.createJsonData(features)
+            let fileN = fN.split('.')[0];
+            await this.writeJsonFile('./src/assets/rawValidJson', fileN, valid)
+            // if (i === arr.length - 1) {
+            // }
+            // this.appendToJsonFile(path, features)
+            // data = [];
         })
-        // if (this.isFileExist('./src/assets/rawValidJson/totalvillage.json')) {
-        //     let rJ = fsEx.readJson('./src/assets/rawValidJson/totalvillage.json');
-        //     const validJson = this.createJsonData(rJ)
-        //     this.writeJsonFile('./src/assets/rawValidJson', 'totalvillage', validJson)
-        //     rJ = []
-        // }
+
+        // const valid = this.createJsonData(features)
+    }
+    readLargeJson(inpath, outpath) {
+        const fs = require('fs');
+        const geojsonStream = require('geojson-stream');
+        const filePath = inpath; // Replace with the actual file path
+        const readStream = fs.createReadStream(filePath, 'utf8');
+        let features = [],
+            states = ['Uttar Pradesh'] //Haryana,Lakshadweep,Sikkim,Meghalaya,Nagaland,Mizoram,Himachal Pradesh,Arunachal Pradesh,Chhattisgarh,West Bengal,Uttarakhand,Daman And Diu,Andaman and Nicobar,Madhya Pradesh,Punjab,Puducherry,Jammu And Kashmir,Ladakh,Rajasthan,Goa,Assam
+        const parse = readStream.pipe(geojsonStream.parse())
+        const stateFeatureMap = new Map();
+        console.log(`Features for state started`);
+        parse.on('data', (feature) => {
+            const state = feature?.properties?.state;
+            if (states.includes(state)) {
+                if (!stateFeatureMap.has(state)) {
+                    console.log('data =>', state)
+                    stateFeatureMap.set(state, []);
+                }
+                stateFeatureMap.get(state).push(feature);
+            }
+        })
+        parse.on('end', () => {
+            stateFeatureMap.forEach((features, state) => {
+                const outputFile = `${state}_village`;
+                const featureCollection = {
+                    type: 'FeatureCollection',
+                    features: features
+                };
+                const JSONStream = require('JSONStream');
+                const outputStream = fs.createWriteStream(`${outpath}/${outputFile}.json`);
+                const jsonStream = JSONStream.stringify();
+                jsonStream.pipe(outputStream);
+                jsonStream.write(featureCollection);
+                jsonStream.end();
+                outputStream.on('finish', () => {
+                    console.log('Data written successfully.');
+                });
+                // this.writeJsonFile(outpath, outputFile, featureCollection)
+                console.log(`Features for state ${state} written to ${outpath}`);
+            });
+        });
     }
     async appendToJsonFile(filePath, newData) {
         try {
             let eF = await this.isFileExist(filePath)
             if (eF) {
                 const jsonString = JSON.stringify(newData, null, 2);
+                // const jsonString = '}';                
                 appendFile(filePath, jsonString, (err) => { })
             } else {
-                await this.writeJsonFile('./src/assets/rawValidJson', 'totalvillage', newData)
+                await this.writeJsonFile('./src/assets/rawValidJson', 'tempFile', newData)
             }
         } catch (error) {
             console.error(`Error appending data to ${filePath}:`, error);
@@ -368,10 +447,6 @@ export class UserService {
         })
     }
 
-    async toFeatureCollection() {
-       
-
-    }
     readFilesFromFolder(folderPath: string): Promise<Array<string>> {
         return new Promise((resolve, reject) => {
             fsEx.readdir(folderPath, (err, files) => {
@@ -384,11 +459,55 @@ export class UserService {
         });
     }
 
+    async readJsonDataByfolder(inpath, outpath, config, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' = 'VIL') {
+        let filesNames = await this.readFilesFromFolder(inpath)
+        await filesNames.forEach(async (fN: any, i, arr) => {
+            this.getJsonVillageData(`${inpath}/${fN}`, outpath, config, level)
+        })
+    }
+
+    createIndexByVillage(inpath, outpath) {
+        const fs = require('fs');
+        const geojsonStream = require('geojson-stream');
+        const filePath = inpath; 
+        const readStream = fs.createReadStream(filePath, 'utf8');
+        const parse = readStream.pipe(geojsonStream.parse());
+        const indexD = []; let count = 0
+        console.log(`Features for index started`);
+        parse.on('data', (feature) => {
+            count++
+            const state = feature?.properties?.state, dist = feature?.properties?.district,
+                subdist = feature?.properties?.subdistrict, village = feature?.properties?.name;
+            const res = {
+                country_code: "IND",
+                country_name: "India",
+                admin_0_name: "India",//country 
+                admin_1_name: state,//state
+                admin_2_name: dist, // dist
+                admin_3_name: subdist,//subdist
+                admin_4_name: village,//village
+                object_id: '91' + this.generateId(count)
+            }
+            indexD.push(res);
+        })
+        parse.on('end', () => {
+            this.writeJsonFile(outpath, 'index', indexD)
+            console.log(`Features for index written to ${outpath}`);
+        });
+
+    }
+
+    generateId(currentId): string {
+        const formattedId = currentId.toString().padStart(6, '0');
+        currentId++;
+        return formattedId;
+    }
     createJsonData(data) {
         return new FeatureCollection(data)
     }
 
 }
+
 export class FeatureCollection {
     type: any;
     constructor(public features: Array<any>) {
