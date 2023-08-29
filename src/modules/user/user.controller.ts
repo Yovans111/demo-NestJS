@@ -7,6 +7,8 @@ import { responseUrl } from 'src/layout/auth/constant';
 import { User } from './entity/user.entity';
 import { userData } from './user-dto.dto';
 import { UserService } from './user.service';
+import { MapService } from './map.service';
+import { KmlService } from './kml.service';
 
 @ApiBearerAuth('JWT-auth')
 @ApiTags('User')
@@ -14,22 +16,23 @@ import { UserService } from './user.service';
 @Controller()
 export class UserController {
 
-    constructor(private userService: UserService) { }
+    constructor(private userService: UserService, private kmlService: KmlService, private mapService: MapService) { }
 
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Get('get')
     getHello(): any {
 
         const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
-        return this.userService.readLargeJson(inpath, outpath);
+        // return this.mapService.readLargeJson(inpath, outpath);
         // const inpath = 'src/assets/rawJsonData', outpath = './src/assets/rawValidJson'
-        // return this.userService.convertToSinglejson(inpath)
-        // return this.userService.getUserData();
+        // return this.mapService.convertToSinglejson(inpath)
+        // return this.mapService.getUserData();
+        return this.mapService.getDataByFolder()
     }
     @Get('index')
     getIndex(): any {
         const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
-        return this.userService.createIndexByVillage(inpath, outpath);
+        return this.mapService.createIndexByVillage(inpath, outpath);
     }
 
     @Get('village')
@@ -38,8 +41,8 @@ export class UserController {
             otherConfig = { countryName: 'country', stateName: 'state', distName: 'district', subDistName: 'name', villageName: 'name', wardName: 'sourcewardname', cityName: 'townname', wardNo: 'sourcewardcode' },
             config = otherConfig,
             inpath = 'src/assets/json/fullvillage/Uttar Pradesh_village.json', outPath = './src/assets/india_village/india'
-        return this.userService.getJsonVillageData(inpath, outPath, config, 'VIL');
-        // return this.userService.readJsonDataByfolder(inpath, outPath, config, 'VIL') // pass the folder path only
+        return this.mapService.getJsonVillageData(inpath, outPath, config, 'VIL');
+        // return this.mapService.readJsonDataByfolder(inpath, outPath, config, 'VIL') // pass the folder path only
     }
 
 
@@ -115,7 +118,7 @@ export class UserController {
             // return this.userService.getJsonData(); // Json extraction
             // // Assuming you have previously defined the output folder path
             const outputFolderPath = './src/assets/upload';
-            await this.userService.extractKmlFile(file.path, outputFolderPath)
+            await this.kmlService.extractKmlFile(file.path, outputFolderPath)
             return { message: 'File uploaded and data extracted successfully!' };
         } catch (error) {
             console.error('Error uploading and processing KML file:', error);
