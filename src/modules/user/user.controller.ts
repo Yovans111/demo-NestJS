@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, InternalServerErrorException, MaxFileSizeValidator, Param, ParseFilePipe, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, MaxFileSizeValidator, Param, ParseFilePipe, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -7,8 +7,8 @@ import { responseUrl } from 'src/layout/auth/constant';
 import { User } from './entity/user.entity';
 import { userData } from './user-dto.dto';
 import { UserService } from './user.service';
-import { MapService } from './map.service';
-import { KmlService } from './kml.service';
+import { KmlService } from './map/kml.service';
+import { MapService } from './map/map.service';
 
 @ApiBearerAuth('JWT-auth')
 @ApiTags('User')
@@ -43,6 +43,14 @@ export class UserController {
             inpath = 'src/assets/json/fullvillage/Uttar Pradesh_village.json', outPath = './src/assets/india_village/india'
         return this.mapService.getJsonVillageData(inpath, outPath, config, 'VIL');
         // return this.mapService.readJsonDataByfolder(inpath, outPath, config, 'VIL') // pass the folder path only
+    }
+
+    @Get('geoJson')
+    async getGeoJsonFeature(@Query('country') country: string, @Query('state') state: string,
+        @Query('district') dist: string, @Query('subdistrict') subdist: string, @Query('village') village: string) {
+
+       const data:any = await this.mapService.getDataByFolder(country, state, dist,subdist, village);
+       return data//JSON.stringify(data).replace(/\s/g, '')
     }
 
 

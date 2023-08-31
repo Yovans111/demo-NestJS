@@ -3,8 +3,8 @@ import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { User } from './entity/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { KmlService } from './kml.service';
-import { MapService } from './map.service';
+import { KmlService } from './map/kml.service';
+import { MapService } from './map/map.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User])],

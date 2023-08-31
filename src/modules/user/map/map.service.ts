@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { rejects } from "assert";
 import { existsSync, mkdirSync, writeFileSync, appendFile } from "fs";
 const fsEx = require('fs-extra');
 import * as fs from 'fs';
+const jsonMinify = require('jsonminify');
 
 
 @Injectable()
@@ -270,33 +272,74 @@ export class MapService {
                 if (fs.lstatSync(filepath).isDirectory()) {
                     if (depth == 0) return result;
                     result.push(file)
-                    // result = result.concat(GetFilelistRecursively(filepath, depth - 1));
+                    result = result.concat(GetFilelistRecursively(filepath, depth - 1));
                 }
             });
             return result;
         });
     }
 
-    getDataByFolder(reqData?: {},) {
-        var GetFilelistRecursively = ((targetpath, depth = -1) => {
-            let result = [], file = []
-            let dirs = fs.readdirSync(targetpath);
-            dirs.forEach(files => {
-                let filepath = targetpath + "/" + files;
-                if (fs.lstatSync(filepath).isDirectory()) {
-                    if (depth == 0) return result;
-                    result.push(this.formatString(files))
-                    // result = result.concat(GetFilelistRecursively(filepath, depth - 1));
-                } else {
-                    file.push(files)
+    async getDataByFolder(country?: string, state?: string, dist?: string, subdist?: string, village?: string): Promise<any> {
+        country = this.replaceSpeChar(country), state = this.replaceSpeChar(state),
+            dist = this.replaceSpeChar(dist), subdist = this.replaceSpeChar(subdist), village = this.replaceSpeChar(village)
+        return new Promise(async (resolve, reject) => {
+            var GetFilelistRecursively = ((targetpath, depth = -1) => {
+                let result = [], file = []
+                let dirs = fs.readdirSync(targetpath);
+                dirs.forEach(files => {
+                    let filepath = targetpath + "/" + files;
+                    if (fs.lstatSync(filepath).isDirectory()) {
+                        if (depth == 0) return result;
+                        result.push(this.formatString(files))
+                        // result = result.concat(GetFilelistRecursively(filepath, depth - 1));
+                    } else {
+                        file.push(files)
+                    }
+                });
+                return { dir: result, file: file };
+            })
+            let basePath = '../../../../../Python Project/iia-data-jobs-master/data', folderPath = '', finaldata, jsonData,
+                level = village ? 'VILLAGE' : subdist ? 'SUBDIST' : dist ? 'DIST' : state ? 'STATE' : 'COUNTRY'
+            switch (level) {
+                case 'VILLAGE':
+                    folderPath = `${basePath}/${country}/${state}/${dist}/${subdist}/${village}`
+                    console.log('village called =>', folderPath)
+                    break;
+                case 'SUBDIST':
+                    folderPath = `${basePath}/${country}/${state}/${dist}/${subdist}`
+                    console.log('subdist called =>', folderPath);
+                    break;
+                case 'DIST':
+                    folderPath = `${basePath}/${country}/${state}/${dist}`
+                    console.log('dist called =>', folderPath)
+                    break;
+                case 'STATE':
+                    folderPath = `${basePath}/${country}/${state}`
+                    console.log('state called =>', folderPath)
+                    break;
+                default:
+                    folderPath = `${basePath}/${country}`
+                    console.log('country called =>', folderPath)
+                    break;
+            }
+            finaldata = GetFilelistRecursively(folderPath)
+            jsonData = await this.readJsonFile(`${folderPath}/${finaldata?.file}`)
+            let res
+            if (jsonData || finaldata.dir) {
+                if (level == 'COUNTRY') {
+                    res = {data:finaldata?.dir}
+                }else{
+                    res = JSON.stringify({ data: finaldata?.dir, geoJson: jsonData });
                 }
-            });
-            return { dir: result, file: file };
+                resolve(res);
+            } else {
+                reject('Unable to Get Data')
+            }
         });
-        let folPa = '../../../../../Python Project/iia-data-jobs-master/data/india'
+    }
 
-        console.log('Drop =>', GetFilelistRecursively(folPa))
-
+    async readJsonFile(path) {
+        return await fsEx.readJson(path)
     }
     formatString(str: string) {
         return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

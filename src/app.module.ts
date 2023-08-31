@@ -18,7 +18,7 @@ import { LoginMiddleware } from './middleware/login/login.middleware';
       port: 3306,
       username: 'root',
       password: 'admin@123#2023',
-      database: 'demo',
+      database: 'mapData', //change to demo for other database
       entities: [User, Chat, MessageEntity],
       // synchronize: true,
     }),
