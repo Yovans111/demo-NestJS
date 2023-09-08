@@ -3,12 +3,27 @@ import { rejects } from "assert";
 import { existsSync, mkdirSync, writeFileSync, appendFile } from "fs";
 const fsEx = require('fs-extra');
 import * as fs from 'fs';
+import { Country, District, State, SubDistrict, Village } from "./entity/map.entity";
+import { Repository } from "typeorm";
+import { InjectRepository } from "@nestjs/typeorm";
 const jsonMinify = require('jsonminify');
 
 
 @Injectable()
 export class MapService {
 
+    constructor(
+        @InjectRepository(Country)
+        private countryRepository: Repository<Country>,
+        @InjectRepository(State)
+        private stateRepository: Repository<State>,
+        @InjectRepository(District)
+        private districtRepository: Repository<District>,
+        @InjectRepository(SubDistrict)
+        private subDistrictRepository: Repository<SubDistrict>,
+        @InjectRepository(Village)
+        private villageRepository: Repository<Village>,
+    ) { }
     //Json Extraction
 
     private createFolderForJson(basePath: string, folderName: string): string {
@@ -145,7 +160,7 @@ export class MapService {
         const filePath = inpath; // Replace with the actual file path
         const readStream = fs.createReadStream(filePath, 'utf8');
         let features = [],
-            states = ['Uttar Pradesh'] //Haryana,Lakshadweep,Sikkim,Meghalaya,Nagaland,Mizoram,Himachal Pradesh,Arunachal Pradesh,Chhattisgarh,West Bengal,Uttarakhand,Daman And Diu,Andaman and Nicobar,Madhya Pradesh,Punjab,Puducherry,Jammu And Kashmir,Ladakh,Rajasthan,Goa,Assam
+            states = ['Andaman and Nicobar Islands']//'Lakshadweep', 'The Dadra And Nagar Haveli And Daman And Diu', 'Chhattisgarh', 'Andaman and Nicobar Islands', 'West Bengal', 'Haryana', 'Himachal Pradesh', 'Uttarakhand', 'Meghalaya', 'Sikkim', 'Mizoram', 'Nagaland', 'Arunachal Pradesh', 'Punjab', 'Puducherry', 'Jammu And Kashmir', 'Ladakh'
         const parse = readStream.pipe(geojsonStream.parse())
         const stateFeatureMap = new Map();
         console.log(`Features for state started`);
@@ -161,21 +176,21 @@ export class MapService {
         })
         parse.on('end', () => {
             stateFeatureMap.forEach((features, state) => {
-                const outputFile = `${state}_village`;
+                const outputFile = `${state}_subdistrict`;
                 const featureCollection = {
                     type: 'FeatureCollection',
                     features: features
                 };
-                const JSONStream = require('JSONStream');
-                const outputStream = fs.createWriteStream(`${outpath}/${outputFile}.json`);
-                const jsonStream = JSONStream.stringify();
-                jsonStream.pipe(outputStream);
-                jsonStream.write(featureCollection);
-                jsonStream.end();
-                outputStream.on('finish', () => {
-                    console.log('Data written successfully.');
-                });
-                // this.writeJsonFile(outpath, outputFile, featureCollection)
+                // const JSONStream = require('JSONStream');
+                // const outputStream = fs.createWriteStream(`${outpath}/${outputFile}.json`);
+                // const jsonStream = JSONStream.stringify();
+                // jsonStream.pipe(outputStream);
+                // jsonStream.write(featureCollection);
+                // jsonStream.end();
+                // outputStream.on('finish', () => {
+                //     console.log('Data written successfully.');
+                // });
+                this.writeJsonFile(outpath, outputFile, featureCollection)
                 console.log(`Features for state ${state} written to ${outpath}`);
             });
         });
@@ -298,39 +313,39 @@ export class MapService {
                 });
                 return { dir: result, file: file };
             })
-            let basePath = '../../../../../Python Project/iia-data-jobs-master/data', folderPath = '', finaldata, jsonData,
+            let basePath = '../../../../../Python Project/iia-data-jobs-master/data', folderPath = '', finaldata: any = {}, jsonData: any = {},
                 level = village ? 'VILLAGE' : subdist ? 'SUBDIST' : dist ? 'DIST' : state ? 'STATE' : 'COUNTRY'
             switch (level) {
                 case 'VILLAGE':
-                    folderPath = `${basePath}/${country}/${state}/${dist}/${subdist}/${village}`
+                    folderPath = `${country}/${state}/${dist}/${subdist}/${village}`
                     console.log('village called =>', folderPath)
                     break;
                 case 'SUBDIST':
-                    folderPath = `${basePath}/${country}/${state}/${dist}/${subdist}`
+                    folderPath = `${country}/${state}/${dist}/${subdist}`
                     console.log('subdist called =>', folderPath);
                     break;
                 case 'DIST':
-                    folderPath = `${basePath}/${country}/${state}/${dist}`
+                    folderPath = `${country}/${state}/${dist}`
                     console.log('dist called =>', folderPath)
                     break;
                 case 'STATE':
-                    folderPath = `${basePath}/${country}/${state}`
+                    folderPath = `${country}/${state}`
                     console.log('state called =>', folderPath)
                     break;
                 default:
-                    folderPath = `${basePath}/${country}`
+                    folderPath = `${country}`
                     console.log('country called =>', folderPath)
                     break;
             }
-            finaldata = GetFilelistRecursively(folderPath)
-            jsonData = await this.readJsonFile(`${folderPath}/${finaldata?.file}`)
+            finaldata = GetFilelistRecursively(`${basePath}/${folderPath}`)
+            jsonData = finaldata?.file.length ? await this.readJsonFile(`${basePath}/${folderPath}/${finaldata?.file[0]}`) : 'No File Detected'
             let res
             if (jsonData || finaldata.dir) {
-                if (level == 'COUNTRY') {
-                    res = {data:finaldata?.dir}
-                }else{
-                    res = JSON.stringify({ data: finaldata?.dir, geoJson: jsonData });
-                }
+                // if (level == 'COUNTRY') {
+                // res = { data: finaldata?.dir }
+                // } else {
+                res = JSON.stringify({ data: finaldata?.dir, geoJson: jsonData })
+                // }
                 resolve(res);
             } else {
                 reject('Unable to Get Data')
@@ -345,6 +360,116 @@ export class MapService {
         return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
 
+    village_dup = {}
+    countForEach = { count: 0, total_count: 0 }
+    async saveData(data: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY') {
+        const countryQuery = this.countryRepository.createQueryBuilder('country'),
+            stateQuery = this.stateRepository.createQueryBuilder('state'),
+            districtQuery = this.districtRepository.createQueryBuilder('district'),
+            subdistQuery = this.subDistrictRepository.createQueryBuilder('subdistrict'),
+            villageQuery = this.villageRepository.createQueryBuilder('village');
+        let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry), res: any;
+        switch (level) {
+            case 'COUNTRY':
+                const country_object_id = '1';
+                properties = this.setProperty(properties, country_object_id)
+                res = await countryQuery.insert().into(Country).values({ country_name: name, geometries, properties, object_id: country_object_id }).execute()
+                break;
+            case 'STATE':
+                let countryData = await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
+                    country_id = countryData['id'], counObId = countryData['object_id'],
+                    state_object_id = this.generateObjectId(counObId, 2);
+                properties = this.setProperty(properties, state_object_id)
+                res = await stateQuery.insert().into(State).values({ state_name: name, geometries, properties, country_id, object_id: state_object_id }).execute()
+                break;
+            case 'DIST':
+                let stateData = await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
+                let state_id = stateData?.['id'], stateObId = stateData?.['object_id'],
+                    district_object_id = this.generateObjectId(stateObId, 2);
+                properties = this.setProperty(properties, district_object_id)
+                res = await districtQuery.insert().into(District).values({ district_name: name, geometries, properties, state_id, object_id: district_object_id }).execute()
+                break;
+            case 'SUBDIST':
+                let districtData = await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
+                let district_id = districtData?.['id'], districtObId = districtData?.['object_id'],
+                    subdist_object_id = this.generateObjectId(districtObId, 2);
+                properties = this.setProperty(properties, subdist_object_id);
+                res = await subdistQuery.insert().into(SubDistrict).values({ subdistrict_name: name, geometries, properties, district_id, object_id: subdist_object_id }).execute()
+                break;
+            case 'VIL':
+                console.log('village Called =>', name, 'state =>', data?.properties?.['state']);
+                let subdistData = await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
+                let subdistrict_id = subdistData?.['id'], subdistObId = subdistData?.['object_id'],
+                    village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['state'];
+                properties = this.setProperty(properties, village_object_id)
+                const state = data?.properties['state'], district = data?.properties['district'], subdist = data?.properties['subdistrict']
+                if (!this.village_dup?.[state]) {
+                    this.village_dup[state] = {}
+                }
+                if (!this.village_dup?.[state][district]) {
+                    this.village_dup[state][district] = {}
+                }
+                if (!this.village_dup?.[state][district][subdist]) {
+                    this.village_dup[state][district][subdist] = []
+                }
+                if (!this.village_dup?.[state][district][subdist].includes(name)) {
+                    this.village_dup[state][district][subdist].push(name)
+                } else {
+                    name = name + '_' + village_object_id
+                };
+                this.countForEach.count++
+                console.log(`Before Insert ${name} | state => ${state} | count => ${this.countForEach.count} / ${this.countForEach.total_count}`);
+                res = await villageQuery.insert().into(Village).values({ village_name: name, geometries, properties, subdistrict_id, object_id: village_object_id, state_name }).execute();
+                // console.log('After Insert',name)
+                break;
+        }
+        if (res)
+            console.log('Data Save successfully =>', name, 'state =>', data?.properties?.['state'])
+    }
+
+    async saveDataByFolder() {
+        let path = '../../../../../../mapData/village_2023',
+            // let path = 'src/assets/json/subdistrict',
+            // fileName = await this.readFilesFromFolder(path),
+            fileName = ['Odisha_village.json'] //Odisha is not completed
+        // const count: { state: string, count: number } = { state: '', count: 0 }
+        let count = 0
+        console.log('Called =>', fileName)
+
+        for (let fn of fileName) {
+            let jsonData = await this.readJsonFile(`${path}/${fn}`)
+            for (let feature of jsonData?.['features']) {
+                // if (['Assam', 'Bihar'].includes(feature?.properties?.state)) {
+                //     count['state'] = feature?.properties?.state
+                //     count.count++;
+                // }
+                count++
+                this.saveData(feature, 'VIL');
+            }
+        }
+        this.countForEach.total_count = count
+        console.log('Total count =>', count)
+    }
+
+    setProperty(properties, object_id) {
+        properties['object_id'] = object_id;
+        properties['objectid'] ? delete properties['objectid'] : '';
+        return this.stringifyData(properties);
+    }
+
+    idMap = {};
+    generateObjectId(ObId, padstart) {
+        if (!this.idMap[ObId]) {
+            this.idMap[ObId] = { ObjId: ObId, newId: 1 };
+        }
+        const { ObjId, newId } = this.idMap[ObId];
+        this.idMap[ObId].newId++;
+        return `${ObjId}${newId?.toString().padStart(padstart, '0')}`
+    }
+
+    stringifyData(data) {
+        return JSON.stringify(data)
+    }
 }
 
 export class FeatureCollection {

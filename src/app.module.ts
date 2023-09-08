@@ -9,6 +9,7 @@ import { ModulesModule } from './modules/modules.module';
 import { Chat } from './modules/chat/entity/chat.entity';
 import { MessageEntity } from './modules/message/message.entity';
 import { LoginMiddleware } from './middleware/login/login.middleware';
+import { Country, State, District, SubDistrict, Village } from './modules/user/map/entity/map.entity';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -19,7 +20,8 @@ import { LoginMiddleware } from './middleware/login/login.middleware';
       username: 'root',
       password: 'admin@123#2023',
       database: 'mapData', //change to demo for other database
-      entities: [User, Chat, MessageEntity],
+      entities: [User, Chat, MessageEntity, Country, State, District, SubDistrict, Village],
+      connectTimeout: 180000 //3 min
       // synchronize: true,
     }),
     RouterModule.register([
@@ -35,7 +37,7 @@ import { LoginMiddleware } from './middleware/login/login.middleware';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements NestModule { 
+export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(LoginMiddleware)

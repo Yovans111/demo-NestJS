@@ -21,18 +21,22 @@ export class UserController {
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Get('get')
     getHello(): any {
-
-        const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
-        // return this.mapService.readLargeJson(inpath, outpath);
+        const inpath = 'src/assets/json/subdistrict/India_Sub_District_Boundary_2023.json', outpath = '../../../../../../mapData/subdistrict_2023'
+        return this.mapService.readLargeJson(inpath, outpath);
         // const inpath = 'src/assets/rawJsonData', outpath = './src/assets/rawValidJson'
         // return this.mapService.convertToSinglejson(inpath)
         // return this.mapService.getUserData();
-        return this.mapService.getDataByFolder()
     }
+    
     @Get('index')
     getIndex(): any {
         const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
         return this.mapService.createIndexByVillage(inpath, outpath);
+    }
+
+    @Get('saveMap')
+    saveMapData(): any {
+        return this.mapService.saveDataByFolder();
     }
 
     @Get('village')
@@ -41,7 +45,7 @@ export class UserController {
             otherConfig = { countryName: 'country', stateName: 'state', distName: 'district', subDistName: 'name', villageName: 'name', wardName: 'sourcewardname', cityName: 'townname', wardNo: 'sourcewardcode' },
             config = otherConfig,
             inpath = 'src/assets/json/fullvillage/Uttar Pradesh_village.json', outPath = './src/assets/india_village/india'
-        return this.mapService.getJsonVillageData(inpath, outPath, config, 'VIL');
+        return this.mapService.getJsonVillageData(inpath, outPath, config, 'VIL')
         // return this.mapService.readJsonDataByfolder(inpath, outPath, config, 'VIL') // pass the folder path only
     }
 
