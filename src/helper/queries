@@ -23,11 +23,10 @@ UPDATE `demo`.`user` SET `password` = 'vans@123' WHERE (`id` = '2');
 
 CREATE TABLE `laundary_shop`.`orders` (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  order_id VARCHAR(10) GENERATED ALWAYS AS (CONCAT('OR', LPAD(id, 4, '0'))) STORED,
+  order_id VARCHAR(10) NOT NULL,
   customer_fk_id INT NOT NULL,
   status INT NOT NULL,
   order_item_count INT NOT NULL,
-  is_paid INT DEFAULT 0,
   total_amount DECIMAL(10, 2) NOT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   delivered_at DATETIME 
@@ -46,3 +45,11 @@ CREATE TABLE yourTable (
 
 SELECT CONCAT('UID', LPAD(id, 7, '0')) AS uid
 FROM yourTable;
+
+
+-- query builder for pagination
+
+--   const res = await listQuery.orderBy('order.created_at', 'DESC')
+--  .offset(offset)
+--  .limit(limit)
+--  .getMany();

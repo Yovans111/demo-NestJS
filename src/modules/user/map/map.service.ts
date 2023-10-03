@@ -6,7 +6,12 @@ import * as fs from 'fs';
 import { Country, District, State, SubDistrict, Village } from "./entity/map.entity";
 import { Repository } from "typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
+import { HttpService } from "@nestjs/axios";
+import { lastValueFrom } from "rxjs";
+import { promises } from "dns";
+
 const jsonMinify = require('jsonminify');
+const geojsonStream = require('geojson-stream');
 
 
 @Injectable()
@@ -23,6 +28,7 @@ export class MapService {
         private subDistrictRepository: Repository<SubDistrict>,
         @InjectRepository(Village)
         private villageRepository: Repository<Village>,
+        private http: HttpService
     ) { }
     //Json Extraction
 
@@ -156,7 +162,6 @@ export class MapService {
     }
     readLargeJson(inpath, outpath) {
         const fs = require('fs');
-        const geojsonStream = require('geojson-stream');
         const filePath = inpath; // Replace with the actual file path
         const readStream = fs.createReadStream(filePath, 'utf8');
         let features = [],
@@ -431,10 +436,10 @@ export class MapService {
         let path = '../../../../../../mapData/village_2023',
             // let path = 'src/assets/json/subdistrict',
             // fileName = await this.readFilesFromFolder(path),
-            fileName = ['Odisha_village.json'] //Odisha is not completed
+            fileName = ['Rajasthan_village.json']
         // const count: { state: string, count: number } = { state: '', count: 0 }
         let count = 0
-        console.log('Called =>', fileName)
+        console.log('fileNames =>', fileName)
 
         for (let fn of fileName) {
             let jsonData = await this.readJsonFile(`${path}/${fn}`)
@@ -469,6 +474,142 @@ export class MapService {
 
     stringifyData(data) {
         return JSON.stringify(data)
+    }
+
+
+    //For survery churchs and remove dupicate churches
+
+
+    churchList: any = []
+    getChurhes(admin0, admin1, admin2) {
+        const url = `http://192.168.0.109:8080/api/admin-areas/dist-churches?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}`;
+        const headersRequest = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
+        };
+        return lastValueFrom(this.http.get(url, { headers: headersRequest }));
+    }
+
+    readVillageByDist(): Promise<any> {
+        return new Promise((resolve, reject) => {
+
+            const jsonPath = '../../../../../../mapData/village_2023/Tamil Nadu_village.json',
+                readStream = fs.createReadStream(jsonPath, 'utf8'),
+                parse = readStream.pipe(geojsonStream.parse());
+            console.log('started')
+
+            const distFeatureMap = new Map();
+            parse.on('data', (feature) => {
+                const dist = feature?.properties?.district;
+                console.log('district =>', dist)
+                if (!distFeatureMap.has(dist)) {
+                    distFeatureMap.set(dist, []);
+                }
+                distFeatureMap.get(dist).push(feature);
+            })
+            parse.on('end', () => {
+                Array.from(distFeatureMap.keys()).forEach(async (k) => {
+                    const f = distFeatureMap.get(k);
+                    await f.forEach(async (features: any) => {
+
+                        let admin0, admin1, admin2, admin3, admin4, polygon, isGet: boolean = false;
+
+                        admin0 = features?.properties.country
+                        admin1 = features?.properties.state
+                        admin2 = features?.properties.district;
+                        admin3 = features?.properties.subdistrict;
+                        admin4 = features?.properties.names;
+                        polygon = features?.geometry?.coordinates;
+
+                        await this.getChurhes(admin0, admin1, admin2).then(async (res: any) => {
+                            if (Array.isArray(res?.data)) {
+                                isGet = true
+                                this.churchList = [];
+                                let churchres = await this.removeDuplicate(res?.data);
+                                await churchres.forEach(async e => {
+                                    let geo = e.geometry?.location;
+                                    const isInside = await this.isMarkerInsidePolygon(geo, polygon)
+                                    if (isInside) {
+                                        this.churchList.push(e);
+                                    }
+                                })
+                            } else {
+                                resolve(res)
+                            }
+                        }).catch((err) => { reject(`Error in getting Church ${err}`); isGet = false })
+
+                        if (isGet) {
+                            let villFeature = features;
+                            await this.saveSurvey(villFeature)
+                            resolve(this.churchList);
+                        }
+                    })
+                });
+            })
+
+        })
+    }
+
+    removeDuplicate(arr): Promise<any> {
+        const uniqueArray = arr.filter((item, index, self) => {
+            const firstIndex = self.findIndex((el) => el.geometry.location.lat === item.geometry.location.lat && el.geometry.location.lng === item.geometry.location.lng);
+            return index === firstIndex;
+        });
+        return uniqueArray
+    }
+
+    async saveSurvey(data: any): Promise<any> {
+        const apiPayload = await this.payload(data);
+        console.log('called Save', apiPayload)
+        const url = `http://192.168.0.109:8080/api/encuesta/create`;
+        const headersRequest = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
+        };
+        return lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
+    }
+
+    async payload(features) {
+        const geoJson = JSON.stringify(features);
+        let payload: any = {},
+            admin0 = features?.properties.country,
+            admin1 = features?.properties.state,
+            admin2 = features?.properties.district,
+            admin3 = features?.properties.subdistrict,
+            admin4 = features?.properties.name;
+        payload.survey = {
+            admin0: admin0,
+            admin1: admin1,
+            admin2: admin2,
+            admin3: admin3,
+            admin4: admin4,
+            noWork: +this.churchList?.length ? false : true,
+            approvedDate: new Date(),
+            geojson: jsonMinify(geoJson),
+            approverName: 'Admin',
+            churchCount: this.churchList?.length
+        }
+        payload.newChurches = this.churchList;
+        return payload
+    }
+
+    isMarkerInsidePolygon(marker, polygon): Promise<any> {
+        const point = marker;
+        polygon = polygon[0];
+        let x = point.lng,
+            y = point.lat;
+        let inside: any = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            let xi = polygon[i][0],
+                yi = polygon[i][1];
+            let xj = polygon[j][0],
+                yj = polygon[j][1];
+
+            let intersect =
+                yi > y != yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+            if (intersect) inside = !inside;
+        }
+        return inside;
     }
 }
 

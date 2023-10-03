@@ -27,7 +27,7 @@ export class UserController {
         // return this.mapService.convertToSinglejson(inpath)
         // return this.mapService.getUserData();
     }
-    
+
     @Get('index')
     getIndex(): any {
         const inpath = 'src/assets/json/indiavillage2021.geojson', outpath = './src/assets/rawValidJson'
@@ -53,10 +53,19 @@ export class UserController {
     async getGeoJsonFeature(@Query('country') country: string, @Query('state') state: string,
         @Query('district') dist: string, @Query('subdistrict') subdist: string, @Query('village') village: string) {
 
-       const data:any = await this.mapService.getDataByFolder(country, state, dist,subdist, village);
-       return data//JSON.stringify(data).replace(/\s/g, '')
+        const data: any = await this.mapService.getDataByFolder(country, state, dist, subdist, village);
+        return data//JSON.stringify(data).replace(/\s/g, '')
     }
 
+    @Get('surveyChurch')
+    async surveyChurch() {
+        const data: any = await this.mapService.readVillageByDist();
+        return data//JSON.stringify(data).replace(/\s/g, '')
+    }
+
+
+
+    /** User **/
 
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Post('save')
