@@ -21,7 +21,7 @@ import { Country, State, District, SubDistrict, Village, City, Ward } from './mo
       password: 'admin@123#2023',
       database: 'mapData', //change to demo for other database
       entities: [User, Chat, MessageEntity, Country, State, District, SubDistrict, Village, City, Ward],
-      connectTimeout: 180000 //3 min
+      connectTimeout: 180000, //3 min
       // synchronize: true,
     }),
     RouterModule.register([

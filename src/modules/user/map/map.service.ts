@@ -645,26 +645,29 @@ export class MapService {
                 break;
 
             case 'VILLAGE':
-                const villageStream = await villageQuery.select(['village.id as id', 'village.village_name as village_name', 'village.properties as properties']).stream();
+                const villageStream = await villageQuery.select(['village.id as id', 'village.village_name as village_name', 'village.properties as properties', 'village.subdistrict_id as subId']).stream();
                 villageStream.on('data', async (d: any) => {
                     const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
-                    const subdistData = await this.dataSource.query(`
-                    SELECT sub.id,sub.object_id,sub.subdistrict_name,state.state_name from mapdata.subdistrict as sub
-                    inner join mapdata.district as dist ON sub.district_id = dist.id 
-                    inner join mapdata.state as state ON state.id = dist.state_id 
-                    where  lower(dist.district_name) like lower('${prop?.district}')  AND lower(state.state_name) = lower('${prop?.state}') and lower(sub.subdistrict_name) like lower('${prop?.subdistrict}')
-                    `)
-                    const subdistObjId = Array.isArray(subdistData) && subdistData.length ? (subdistData.length > 1 ? null : subdistData[0].object_id) : null;
-                    count++
-                    if (subdistObjId == null) {
-                        nullCount++
-                        return
-                    }
-                    const new_village_object_id = this.generateObjectId(subdistObjId, 3);
-                    console.log('StateData =>', subdistData, 'new Obje =>', new_village_object_id, '| COUNT =>', count);
-                    res = await this.villageRepository.update(d?.id, { object_id: new_village_object_id });
-                    if (res) {
-                        console.log('Data Update Succesfully | NULL COUNT =>', nullCount);
+                    const skip = ['Uttarakhand', 'Uttar Pradesh', 'West Bengal', 'Tripura', 'Telangana', 'Tamil Nadu']
+                    if (skip.includes(prop?.state)) {
+
+                        const subdistData = await this.dataSource.query(`
+                        SELECT sub.object_id,sub.id,sub.subdistrict_name from subdistrict as sub
+                        where sub.id = ${d?.subId}
+                        `)
+                        // await this.subDistrictRepository.findOne({ where: { id: d?.subId } });
+                        const subdistObjId = Array.isArray(subdistData) && subdistData.length ? (subdistData.length > 1 ? null : subdistData[0].object_id) : null;
+                        count++
+                        if (subdistObjId == null) {
+                            nullCount++
+                            return
+                        }
+                        const new_village_object_id = this.generateObjectId(subdistObjId, 3);
+                        console.log(` village => ${d?.village_name} | state => ${prop?.state} | count => ${count}`);
+                        res = await this.villageRepository.update(d?.id, { object_id: new_village_object_id });
+                        if (res) {
+                            console.log(`Data Update Succesfully | village => ${d?.village_name}| NULL COUNT =>`, nullCount);
+                        }
                     }
                 });
                 break;
