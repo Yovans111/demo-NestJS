@@ -1,14 +1,12 @@
-import { Injectable } from "@nestjs/common";
-import { rejects } from "assert";
-import { existsSync, mkdirSync, writeFileSync, appendFile } from "fs";
-const fsEx = require('fs-extra');
-import * as fs from 'fs';
-import { Country, District, State, SubDistrict, Village } from "./entity/map.entity";
-import { Repository } from "typeorm";
-import { InjectRepository } from "@nestjs/typeorm";
 import { HttpService } from "@nestjs/axios";
+import { Injectable } from "@nestjs/common";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import * as fs from 'fs';
+import { appendFile, existsSync, mkdirSync, writeFileSync } from "fs";
 import { lastValueFrom } from "rxjs";
-import { promises } from "dns";
+import { DataSource, Repository } from "typeorm";
+import { City, Country, District, State, SubDistrict, Village, Ward } from "./entity/map.entity";
+const fsEx = require('fs-extra');
 
 const jsonMinify = require('jsonminify');
 const geojsonStream = require('geojson-stream');
@@ -28,6 +26,12 @@ export class MapService {
         private subDistrictRepository: Repository<SubDistrict>,
         @InjectRepository(Village)
         private villageRepository: Repository<Village>,
+        @InjectRepository(City)
+        private cityRepository: Repository<City>,
+        @InjectRepository(Ward)
+        private wardRepository: Repository<Ward>,
+        @InjectDataSource()
+        private dataSource: DataSource,
         private http: HttpService
     ) { }
     //Json Extraction
@@ -367,13 +371,18 @@ export class MapService {
 
     village_dup = {}
     countForEach = { count: 0, total_count: 0 }
-    async saveData(data: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY') {
+    startTime
+    async saveData(data: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY' | 'CITY' | 'WARD') {
         const countryQuery = this.countryRepository.createQueryBuilder('country'),
             stateQuery = this.stateRepository.createQueryBuilder('state'),
             districtQuery = this.districtRepository.createQueryBuilder('district'),
             subdistQuery = this.subDistrictRepository.createQueryBuilder('subdistrict'),
-            villageQuery = this.villageRepository.createQueryBuilder('village');
-        let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry), res: any;
+            villageQuery = this.villageRepository.createQueryBuilder('village'),
+            wardQuery = this.wardRepository.createQueryBuilder('ward'),
+            cityQuery = this.cityRepository.createQueryBuilder('city');
+        let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
+            cityname = data?.properties['cityname'], res: any;
+        // console.log('name=>', name, 'state =>', data?.properties?.['state']);
         switch (level) {
             case 'COUNTRY':
                 const country_object_id = '1';
@@ -401,15 +410,40 @@ export class MapService {
                 properties = this.setProperty(properties, subdist_object_id);
                 res = await subdistQuery.insert().into(SubDistrict).values({ subdistrict_name: name, geometries, properties, district_id, object_id: subdist_object_id }).execute()
                 break;
+
+            case 'CITY':
+                if (data?.properties['statename'] == 'Maharashtra') {
+                    let districtBycity = await districtQuery.where(`LOWER(district.district_name) LIKE LOWER(:value)`, { value: data?.properties['district'] }).getOne(),
+                        district_idBycity = districtBycity?.['id'], districtObIdBycity = districtBycity?.['object_id'];
+                    let city_object_id = this.generateObjectId(districtObIdBycity, 2);
+                    properties = this.setProperty(properties, city_object_id);
+                    this.countForEach.count++
+                    console.log(`Before Insert ${name} | district => ${data?.properties['districtname']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
+                    res = await cityQuery.insert().into(City).values({ city_name: cityname, geometries, properties, district_id: district_idBycity, object_id: city_object_id }).execute()
+                }
+                break;
+
+            case 'WARD':
+                if (data?.properties['state'] == 'Maharashtra') {
+                    let cityData = await cityQuery.where(`LOWER(city.city_name) LIKE LOWER(:value)`, { value: data?.properties['cityname'] }).getOne();
+                    // console.log(`cityId => ${cityData?.id} | city => ${name}`)
+                    let city_id = cityData?.id
+                    let ward_object_id = this.generateObjectId(cityData?.object_id, 3);
+                    this.countForEach.count++;
+                    properties = this.setProperty(properties, ward_object_id)
+                    console.log(`Before Insert ${name} | city => ${data?.properties['cityname']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
+                    res = await wardQuery.insert().into(Ward).values({ ward_name: name, geometries, properties, city_id, object_id: ward_object_id, state_name: data?.properties['state'] }).execute()
+                }
+                break;
+
             case 'VIL':
-                console.log('village Called =>', name, 'state =>', data?.properties?.['state']);
                 let subdistData = await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
                 let subdistrict_id = subdistData?.['id'], subdistObId = subdistData?.['object_id'],
                     village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['state'];
                 properties = this.setProperty(properties, village_object_id)
                 const state = data?.properties['state'], district = data?.properties['district'], subdist = data?.properties['subdistrict']
                 if (!this.village_dup?.[state]) {
-                    this.village_dup[state] = {}
+                    this.village_dup[state] = {};
                 }
                 if (!this.village_dup?.[state][district]) {
                     this.village_dup[state][district] = {}
@@ -423,33 +457,31 @@ export class MapService {
                     name = name + '_' + village_object_id
                 };
                 this.countForEach.count++
-                console.log(`Before Insert ${name} | state => ${state} | count => ${this.countForEach.count} / ${this.countForEach.total_count}`);
+                const d = new Date();
+                console.log(`Before Insert ${name} | state => ${state} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
                 res = await villageQuery.insert().into(Village).values({ village_name: name, geometries, properties, subdistrict_id, object_id: village_object_id, state_name }).execute();
                 // console.log('After Insert',name)
                 break;
         }
         if (res)
-            console.log('Data Save successfully =>', name, 'state =>', data?.properties?.['state'])
+            console.log(res)
     }
 
     async saveDataByFolder() {
-        let path = '../../../../../../mapData/village_2023',
+        let path = '../../../../../../mapData/ward',
             // let path = 'src/assets/json/subdistrict',
-            // fileName = await this.readFilesFromFolder(path),
-            fileName = ['Rajasthan_village.json']
+            fileName = await this.readFilesFromFolder(path)
+        // fileName = ['Uttar Pradesh_village.json']
         // const count: { state: string, count: number } = { state: '', count: 0 }
         let count = 0
-        console.log('fileNames =>', fileName)
-
+        console.log('fileNames =>', fileName);
+        const d = new Date()
+        this.startTime = `${d.getHours()}:${d.getMinutes()}`;
         for (let fn of fileName) {
             let jsonData = await this.readJsonFile(`${path}/${fn}`)
             for (let feature of jsonData?.['features']) {
-                // if (['Assam', 'Bihar'].includes(feature?.properties?.state)) {
-                //     count['state'] = feature?.properties?.state
-                //     count.count++;
-                // }
                 count++
-                this.saveData(feature, 'VIL');
+                this.saveData(feature, 'WARD');
             }
         }
         this.countForEach.total_count = count
@@ -476,6 +508,169 @@ export class MapService {
         return JSON.stringify(data)
     }
 
+
+    /* For Find Duplicate and update village table */
+
+
+    async findVillageDulicateByName() {
+        const villageQuery = this.villageRepository.createQueryBuilder('village'); let count = 0, nullCount = 0;
+
+        try {
+            await villageQuery.select(['village.village_name', 'village.id', 'village.properties'])
+                .where('village.subdistrict_id IN ' +
+                    '(SELECT subdistrict.id ' +
+                    'FROM subdistrict ' +
+                    'WHERE subdistrict.subdistrict_name IN ' +
+                    '(SELECT subdistrict_name ' +
+                    'FROM subdistrict ' +
+                    'GROUP BY subdistrict_name ' +
+                    'HAVING COUNT(subdistrict_name) > 1))').getMany().then(async (res) => {
+                        if (res.length) {
+                            await res.forEach(async (d) => {
+                                const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+                                const villageName = prop?.name,
+                                    subdistrictName = prop?.subdistrict,
+                                    districtName = prop?.district,
+                                    stateName = prop?.state;
+
+                                let result = await this.dataSource.query(`
+                            SELECT sub.id,sub.subdistrict_name,state.state_name from subdistrict as sub
+                            inner join district as dist ON sub.district_id = dist.id 
+                            inner join state as state ON state.id = dist.state_id 
+                            WHERE (  LOWER(dist.district_name) = LOWER('${districtName}'))  AND (LOWER(state.state_name) = LOWER('${stateName}')) AND (LOWER(sub.subdistrict_name) = LOWER('${subdistrictName}'))  
+                            `)
+                                if (result) {
+                                    const newsubId = Array.isArray(result) && result.length ? (result.length > 1 ? null : result[0].id) : null;
+                                    if (newsubId == null) {
+                                        nullCount++
+                                    }
+                                    count++
+                                    console.log(`Before village => ${villageName} | state => ${stateName} | count => ${count}`)
+                                    const res = await this.villageRepository.update(d?.id, { subdistrict_id: newsubId })
+                                    if (res) {
+                                        console.log(`Data Updated village => ${villageName} | state => ${stateName} `)
+                                        console.log(`Data Updated Null COUNT => ${nullCount}`)
+                                    }
+                                }
+                            })
+                        }
+                    });
+
+        } catch (error) {
+            return error
+        }
+    }
+
+    async findVillageSubdistIdByNull() {
+        const villageQuery = this.villageRepository.createQueryBuilder('village');
+        let count = 0, nullCount = 0;
+
+        await villageQuery.select(['village.village_name', 'village.id', 'village.properties'])
+            .where('village.subdistrict_id is null').getMany().then(async (data) => {
+                if (data.length) {
+                    await data.forEach(async (d) => {
+                        const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+                        const villageName = prop?.name,
+                            subdistrictName = prop?.subdistrict,
+                            districtName = prop?.district,
+                            stateName = prop?.state,
+                            villageId = d?.id;
+                        let result = await this.dataSource.query(`
+                            SELECT sub.id,sub.subdistrict_name,state.state_name from subdistrict as sub
+                            inner join district as dist ON sub.district_id = dist.id 
+                            inner join state as state ON state.id = dist.state_id 
+                            WHERE (  LOWER(dist.district_name) LIKE LOWER('%${districtName}%'))  AND (LOWER(state.state_name) = LOWER('${stateName}')) AND (LOWER(sub.subdistrict_name) LIKE LOWER('%${subdistrictName}%'))  
+                            `)
+                        if (result) {
+                            const newsubId = Array.isArray(result) && result.length ? (result.length > 1 ? null : result[0].id) : null;
+                            if (newsubId == null) {
+                                nullCount++
+                            }
+                            count++
+                            console.log(`Before village => ${villageName} | state => ${stateName} | count => ${count}`)
+                            const res = await this.villageRepository.update(villageId, { subdistrict_id: newsubId })
+                            if (res) {
+                                console.log(`Data Updated village => ${villageName} | state => ${stateName} `)
+                                console.log(`Data Updated Null COUNT => ${nullCount}`)
+                            }
+                        }
+
+                    })
+                }
+            })
+    }
+
+    async removeDupObjectId(level: 'DIST' | 'SUB-DIST' | 'VILLAGE') {
+        const stateQuery = this.stateRepository.createQueryBuilder('state'),
+            districtQuery = this.districtRepository.createQueryBuilder('district'),
+            subdistQuery = this.subDistrictRepository.createQueryBuilder('subdistrict'),
+            villageQuery = this.villageRepository.createQueryBuilder('village');
+        let res, nullCount = 0, count = 0
+        switch (level) {
+            case 'DIST':
+                const distData = await districtQuery.getMany();
+                distData.forEach(async (d) => {
+                    const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+                    const stateData = await stateQuery.select(['state.object_id', 'state.state_name']).where(`state.id = ${d?.state_id}`).getOne();
+                    const new_dist_object_id = this.generateObjectId(stateData?.object_id, 2);
+                    console.log('StateData =>', stateData, 'new Obje =>', new_dist_object_id);
+                    res = await this.districtRepository.update(d?.id, { object_id: new_dist_object_id });
+                    if (res) {
+                        console.log('Data Update Succesfully');
+                    }
+                })
+                break;
+
+            case 'SUB-DIST':
+                const subdistData = await subdistQuery.getMany();
+                subdistData.forEach(async (d) => {
+                    const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+                    const districtData = await this.dataSource.query(`
+                    select dist.object_id,dist.district_name from mapdata.district as dist
+                    inner join mapdata.state as state on dist.state_id = state.id
+                    where  lower(dist.district_name) like lower('${prop?.district}')  AND lower(state.state_name) = lower('${prop?.state}') ;
+                    `)
+                    const distObjId = Array.isArray(districtData) && districtData.length ? (districtData.length > 1 ? null : districtData[0].object_id) : null;
+                    if (distObjId == null) {
+                        nullCount++
+                        return
+                    }
+                    const new_subdist_object_id = this.generateObjectId(distObjId, 2);
+                    console.log('StateData =>', districtData, 'new Obje =>', new_subdist_object_id);
+                    res = await this.subDistrictRepository.update(d?.id, { object_id: new_subdist_object_id });
+                    if (res) {
+                        console.log('Data Update Succesfully | NULL COUNT =>', nullCount);
+                    }
+                })
+                break;
+
+            case 'VILLAGE':
+                const villageStream = await villageQuery.select(['village.id as id', 'village.village_name as village_name', 'village.properties as properties']).stream();
+                villageStream.on('data', async (d: any) => {
+                    const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+                    const subdistData = await this.dataSource.query(`
+                    SELECT sub.id,sub.object_id,sub.subdistrict_name,state.state_name from mapdata.subdistrict as sub
+                    inner join mapdata.district as dist ON sub.district_id = dist.id 
+                    inner join mapdata.state as state ON state.id = dist.state_id 
+                    where  lower(dist.district_name) like lower('${prop?.district}')  AND lower(state.state_name) = lower('${prop?.state}') and lower(sub.subdistrict_name) like lower('${prop?.subdistrict}')
+                    `)
+                    const subdistObjId = Array.isArray(subdistData) && subdistData.length ? (subdistData.length > 1 ? null : subdistData[0].object_id) : null;
+                    count++
+                    if (subdistObjId == null) {
+                        nullCount++
+                        return
+                    }
+                    const new_village_object_id = this.generateObjectId(subdistObjId, 3);
+                    console.log('StateData =>', subdistData, 'new Obje =>', new_village_object_id, '| COUNT =>', count);
+                    res = await this.villageRepository.update(d?.id, { object_id: new_village_object_id });
+                    if (res) {
+                        console.log('Data Update Succesfully | NULL COUNT =>', nullCount);
+                    }
+                });
+                break;
+        }
+
+    }
 
     //For survery churchs and remove dupicate churches
 
@@ -544,6 +739,9 @@ export class MapService {
                             resolve(this.churchList);
                         }
                     })
+
+                    // clear village data for each loop
+                    distFeatureMap.set(k, []);
                 });
             })
 

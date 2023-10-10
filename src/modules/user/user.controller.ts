@@ -63,6 +63,17 @@ export class UserController {
         return data//JSON.stringify(data).replace(/\s/g, '')
     }
 
+    @Get('findDup')
+    async findDup() {
+        const data: any = await this.mapService.findVillageSubdistIdByNull();
+        return data//JSON.stringify(data).replace(/\s/g, '')
+    }
+    @Get('reObjectId')
+    async removeDupObjectId() {
+        const data: any = await this.mapService.removeDupObjectId('VILLAGE');
+        return data//JSON.stringify(data).replace(/\s/g, '')
+    }
+
 
 
     /** User **/
