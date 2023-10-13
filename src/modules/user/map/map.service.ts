@@ -1,14 +1,9 @@
-import { Injectable } from "@nestjs/common";
-import { rejects } from "assert";
-import { existsSync, mkdirSync, writeFileSync, appendFile } from "fs";
-const fsEx = require('fs-extra');
-import * as fs from 'fs';
-import { Country, District, State, SubDistrict, Village } from "./entity/map.entity";
-import { Repository } from "typeorm";
-import { InjectRepository } from "@nestjs/typeorm";
 import { HttpService } from "@nestjs/axios";
-import { lastValueFrom } from "rxjs";
-import { promises } from "dns";
+import { Injectable } from "@nestjs/common";
+import * as fs from 'fs';
+import { appendFile, existsSync, mkdirSync, writeFileSync } from "fs";
+import { Observable, catchError, combineLatest, delay, from, lastValueFrom, retryWhen, take, throwError } from "rxjs";
+const fsEx = require('fs-extra');
 
 const jsonMinify = require('jsonminify');
 const geojsonStream = require('geojson-stream');
@@ -18,16 +13,16 @@ const geojsonStream = require('geojson-stream');
 export class MapService {
 
     constructor(
-        @InjectRepository(Country)
-        private countryRepository: Repository<Country>,
-        @InjectRepository(State)
-        private stateRepository: Repository<State>,
-        @InjectRepository(District)
-        private districtRepository: Repository<District>,
-        @InjectRepository(SubDistrict)
-        private subDistrictRepository: Repository<SubDistrict>,
-        @InjectRepository(Village)
-        private villageRepository: Repository<Village>,
+        // @InjectRepository(Country)
+        // private countryRepository: Repository<Country>,
+        // @InjectRepository(State)
+        // private stateRepository: Repository<State>,
+        // @InjectRepository(District)
+        // private districtRepository: Repository<District>,
+        // @InjectRepository(SubDistrict)
+        // private subDistrictRepository: Repository<SubDistrict>,
+        // @InjectRepository(Village)
+        // private villageRepository: Repository<Village>,
         private http: HttpService
     ) { }
     //Json Extraction
@@ -368,68 +363,68 @@ export class MapService {
     village_dup = {}
     countForEach = { count: 0, total_count: 0 }
     async saveData(data: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY') {
-        const countryQuery = this.countryRepository.createQueryBuilder('country'),
-            stateQuery = this.stateRepository.createQueryBuilder('state'),
-            districtQuery = this.districtRepository.createQueryBuilder('district'),
-            subdistQuery = this.subDistrictRepository.createQueryBuilder('subdistrict'),
-            villageQuery = this.villageRepository.createQueryBuilder('village');
-        let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry), res: any;
-        switch (level) {
-            case 'COUNTRY':
-                const country_object_id = '1';
-                properties = this.setProperty(properties, country_object_id)
-                res = await countryQuery.insert().into(Country).values({ country_name: name, geometries, properties, object_id: country_object_id }).execute()
-                break;
-            case 'STATE':
-                let countryData = await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
-                    country_id = countryData['id'], counObId = countryData['object_id'],
-                    state_object_id = this.generateObjectId(counObId, 2);
-                properties = this.setProperty(properties, state_object_id)
-                res = await stateQuery.insert().into(State).values({ state_name: name, geometries, properties, country_id, object_id: state_object_id }).execute()
-                break;
-            case 'DIST':
-                let stateData = await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
-                let state_id = stateData?.['id'], stateObId = stateData?.['object_id'],
-                    district_object_id = this.generateObjectId(stateObId, 2);
-                properties = this.setProperty(properties, district_object_id)
-                res = await districtQuery.insert().into(District).values({ district_name: name, geometries, properties, state_id, object_id: district_object_id }).execute()
-                break;
-            case 'SUBDIST':
-                let districtData = await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
-                let district_id = districtData?.['id'], districtObId = districtData?.['object_id'],
-                    subdist_object_id = this.generateObjectId(districtObId, 2);
-                properties = this.setProperty(properties, subdist_object_id);
-                res = await subdistQuery.insert().into(SubDistrict).values({ subdistrict_name: name, geometries, properties, district_id, object_id: subdist_object_id }).execute()
-                break;
-            case 'VIL':
-                console.log('village Called =>', name, 'state =>', data?.properties?.['state']);
-                let subdistData = await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
-                let subdistrict_id = subdistData?.['id'], subdistObId = subdistData?.['object_id'],
-                    village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['state'];
-                properties = this.setProperty(properties, village_object_id)
-                const state = data?.properties['state'], district = data?.properties['district'], subdist = data?.properties['subdistrict']
-                if (!this.village_dup?.[state]) {
-                    this.village_dup[state] = {}
-                }
-                if (!this.village_dup?.[state][district]) {
-                    this.village_dup[state][district] = {}
-                }
-                if (!this.village_dup?.[state][district][subdist]) {
-                    this.village_dup[state][district][subdist] = []
-                }
-                if (!this.village_dup?.[state][district][subdist].includes(name)) {
-                    this.village_dup[state][district][subdist].push(name)
-                } else {
-                    name = name + '_' + village_object_id
-                };
-                this.countForEach.count++
-                console.log(`Before Insert ${name} | state => ${state} | count => ${this.countForEach.count} / ${this.countForEach.total_count}`);
-                res = await villageQuery.insert().into(Village).values({ village_name: name, geometries, properties, subdistrict_id, object_id: village_object_id, state_name }).execute();
-                // console.log('After Insert',name)
-                break;
-        }
-        if (res)
-            console.log('Data Save successfully =>', name, 'state =>', data?.properties?.['state'])
+        // const countryQuery = this.countryRepository.createQueryBuilder('country'),
+        //     stateQuery = this.stateRepository.createQueryBuilder('state'),
+        //     districtQuery = this.districtRepository.createQueryBuilder('district'),
+        //     subdistQuery = this.subDistrictRepository.createQueryBuilder('subdistrict'),
+        //     villageQuery = this.villageRepository.createQueryBuilder('village');
+        // let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry), res: any;
+        // switch (level) {
+        //     case 'COUNTRY':
+        //         const country_object_id = '1';
+        //         properties = this.setProperty(properties, country_object_id)
+        //         res = await countryQuery.insert().into(Country).values({ country_name: name, geometries, properties, object_id: country_object_id }).execute()
+        //         break;
+        //     case 'STATE':
+        //         let countryData = await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
+        //             country_id = countryData['id'], counObId = countryData['object_id'],
+        //             state_object_id = this.generateObjectId(counObId, 2);
+        //         properties = this.setProperty(properties, state_object_id)
+        //         res = await stateQuery.insert().into(State).values({ state_name: name, geometries, properties, country_id, object_id: state_object_id }).execute()
+        //         break;
+        //     case 'DIST':
+        //         let stateData = await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
+        //         let state_id = stateData?.['id'], stateObId = stateData?.['object_id'],
+        //             district_object_id = this.generateObjectId(stateObId, 2);
+        //         properties = this.setProperty(properties, district_object_id)
+        //         res = await districtQuery.insert().into(District).values({ district_name: name, geometries, properties, state_id, object_id: district_object_id }).execute()
+        //         break;
+        //     case 'SUBDIST':
+        //         let districtData = await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
+        //         let district_id = districtData?.['id'], districtObId = districtData?.['object_id'],
+        //             subdist_object_id = this.generateObjectId(districtObId, 2);
+        //         properties = this.setProperty(properties, subdist_object_id);
+        //         res = await subdistQuery.insert().into(SubDistrict).values({ subdistrict_name: name, geometries, properties, district_id, object_id: subdist_object_id }).execute()
+        //         break;
+        //     case 'VIL':
+        //         console.log('village Called =>', name, 'state =>', data?.properties?.['state']);
+        //         let subdistData = await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
+        //         let subdistrict_id = subdistData?.['id'], subdistObId = subdistData?.['object_id'],
+        //             village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['state'];
+        //         properties = this.setProperty(properties, village_object_id)
+        //         const state = data?.properties['state'], district = data?.properties['district'], subdist = data?.properties['subdistrict']
+        //         if (!this.village_dup?.[state]) {
+        //             this.village_dup[state] = {}
+        //         }
+        //         if (!this.village_dup?.[state][district]) {
+        //             this.village_dup[state][district] = {}
+        //         }
+        //         if (!this.village_dup?.[state][district][subdist]) {
+        //             this.village_dup[state][district][subdist] = []
+        //         }
+        //         if (!this.village_dup?.[state][district][subdist].includes(name)) {
+        //             this.village_dup[state][district][subdist].push(name)
+        //         } else {
+        //             name = name + '_' + village_object_id
+        //         };
+        //         this.countForEach.count++
+        //         console.log(`Before Insert ${name} | state => ${state} | count => ${this.countForEach.count} / ${this.countForEach.total_count}`);
+        //         res = await villageQuery.insert().into(Village).values({ village_name: name, geometries, properties, subdistrict_id, object_id: village_object_id, state_name }).execute();
+        //         // console.log('After Insert',name)
+        //         break;
+        // }
+        // if (res)
+        //     console.log('Data Save successfully =>', name, 'state =>', data?.properties?.['state'])
     }
 
     async saveDataByFolder() {
@@ -478,11 +473,8 @@ export class MapService {
 
 
     //For survery churchs and remove dupicate churches
-
-
-    churchList: any = []
-    getChurhes(admin0, admin1, admin2) {
-        const url = `http://192.168.0.109:8080/api/admin-areas/dist-churches?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}`;
+    getChurchCount(admin0, admin1, admin2, admin3, admin4) {
+        const url = `http://192.168.0.109:8080/api/admin-areas/village/church-count?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}&admin3=${admin3}&admin4=${admin4}`;
         const headersRequest = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
@@ -490,62 +482,107 @@ export class MapService {
         return lastValueFrom(this.http.get(url, { headers: headersRequest }));
     }
 
+
+    getChurhes(admin0, admin1, admin2, admin3?, admin4?) {
+        // const url = `http://192.168.0.109:8080/api/admin-areas/dist-churches?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}`;
+        const url = `http://192.168.0.109:8080/api/admin-areas/village-churches?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}&admin3=${admin3}&admin4=${admin4}`;
+        const headersRequest = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
+        };
+        return lastValueFrom(this.http.get(url, { headers: headersRequest }));
+    }
+
+    total_church_count = 0
     readVillageByDist(): Promise<any> {
-        return new Promise((resolve, reject) => {
-
-            const jsonPath = '../../../../../../mapData/village_2023/Tamil Nadu_village.json',
-                readStream = fs.createReadStream(jsonPath, 'utf8'),
-                parse = readStream.pipe(geojsonStream.parse());
-            console.log('started')
-
-            const distFeatureMap = new Map();
-            parse.on('data', (feature) => {
-                const dist = feature?.properties?.district;
-                console.log('district =>', dist)
-                if (!distFeatureMap.has(dist)) {
-                    distFeatureMap.set(dist, []);
-                }
-                distFeatureMap.get(dist).push(feature);
-            })
-            parse.on('end', () => {
-                Array.from(distFeatureMap.keys()).forEach(async (k) => {
-                    const f = distFeatureMap.get(k);
-                    await f.forEach(async (features: any) => {
-
-                        let admin0, admin1, admin2, admin3, admin4, polygon, isGet: boolean = false;
-
-                        admin0 = features?.properties.country
-                        admin1 = features?.properties.state
-                        admin2 = features?.properties.district;
-                        admin3 = features?.properties.subdistrict;
-                        admin4 = features?.properties.names;
-                        polygon = features?.geometry?.coordinates;
-
-                        await this.getChurhes(admin0, admin1, admin2).then(async (res: any) => {
-                            if (Array.isArray(res?.data)) {
-                                isGet = true
-                                this.churchList = [];
-                                let churchres = await this.removeDuplicate(res?.data);
-                                await churchres.forEach(async e => {
-                                    let geo = e.geometry?.location;
-                                    const isInside = await this.isMarkerInsidePolygon(geo, polygon)
-                                    if (isInside) {
-                                        this.churchList.push(e);
-                                    }
-                                })
-                            } else {
-                                resolve(res)
-                            }
-                        }).catch((err) => { reject(`Error in getting Church ${err}`); isGet = false })
-
-                        if (isGet) {
-                            let villFeature = features;
-                            await this.saveSurvey(villFeature)
-                            resolve(this.churchList);
+        return new Promise(async (resolve, reject) => {
+            try {
+                const jsonPath = 'src/assets/village_2023/Maharashtra_village.json',
+                    readStream = fs.createReadStream(jsonPath, 'utf8'),
+                    parse = readStream.pipe(geojsonStream.parse());
+                const distFeatureMap = new Map();
+                parse.on('data', (feature) => {
+                    const dist = feature?.properties?.district,
+                        subdist = feature?.properties?.subdistrict,
+                        name = feature?.properties?.name
+                    console.log('district =>', dist)
+                    if (['Chandrapur'].includes(dist)) {
+                        console.log('Village NAme = >', name)
+                        if (!distFeatureMap.has(dist)) {
+                            distFeatureMap.set(dist, []);
                         }
-                    })
-                });
-            })
+                        distFeatureMap.get(dist).push(feature);
+                    }
+                })
+                parse.on('end', () => {
+                    console.log('Json Read End')
+                    Array.from(distFeatureMap.keys()).forEach(async (k) => {
+                        const f = distFeatureMap.get(k);
+                        await f.forEach(async (features: any) => {
+
+                            //let , isGet: boolean = false;
+
+                            const admin0 = features?.properties.country,
+                                admin1 = features?.properties.state,
+                                admin2 = features?.properties.district,
+                                admin3 = features?.properties.subdistrict,
+                                admin4 = features?.properties.name,
+                                polygon = features?.geometry?.coordinates;
+                            const churchList = [];
+                            //  const churchCount: any = await this.getChurchCount(admin0, admin1, admin2, admin3, admin4);
+                            //  this.total_church_count += +churchCount['data'];
+                            //  console.log(`count => ${churchCount['data']} | total => ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
+                            //  this.saveStats(admin2, admin3, admin4, features, churchCount['data'])
+
+                            await this.getChurhes(admin0, admin1, admin2, admin3, admin4).then(async (res: any) => {
+                                if (Array.isArray(res?.data)) {
+                                    //    isGet = true
+                                    // this.churchList = [];
+                                    const churchres = await this.removeDuplicate(res?.data);
+                                    await churchres.forEach(async e => {
+                                        let geo = e.geometry?.location;
+                                        const isInside = await this.isMarkerInsidePolygon(geo, polygon)
+                                        if (isInside) {
+                                            churchList.push(e);
+                                        }
+                                        // console.log('IsIn    side =>', isInside, `| ${admin2} | ${admin3} | ${admin4} | ch => ${e?.name}`)
+                                    })
+
+                                     await this.saveStats(admin2, admin3, admin4, features, churchList);
+                                    this.total_church_count +=  +churchList.length
+                                    console.log('Final Result churches', churchList.length, ` totalCount => ${this.total_church_count}  | ${admin2} | ${admin3} | ${admin4} `)
+                                 } else {
+                                     resolve(res);
+                                 }
+                              }).catch((err) => { reject(`Error in getting Church ${err}`); })
+                            //     .finally(async () => {
+                            //         //let villFeature = features;
+                            //         try {
+                            //             // this.saveStats(admin3, admin4, features, churchList)
+                            //             // await this.saveSurvey(features, churchList)
+                            //             // const apiA :Observable<any> = from(this.saveSurvey(features, churchList)),
+                            //             // apiB:Observable<any> = from(this.saveStats(admin3, admin4, features, churchList))
+                            //             // await combineLatest({
+                            //             //     survey:apiA,
+                            //             //     stats:apiB
+                            //             // }).subscribe((a) => {
+                            //             //     resolve(a);
+                            //             // });
+                            //         } catch (error) {
+                            //             console.log('Error in Combine =>', error)
+                            //         }
+                            //     })
+
+
+
+                        })
+                        distFeatureMap.set(k, []);
+                    });
+                })
+
+            } catch (err) {
+                reject(err)
+            }
 
         })
     }
@@ -558,20 +595,32 @@ export class MapService {
         return uniqueArray
     }
 
-    async saveSurvey(data: any): Promise<any> {
-        const apiPayload = await this.payload(data);
-        console.log('called Save', apiPayload)
-        const url = `http://192.168.0.109:8080/api/encuesta/create`;
-        const headersRequest = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
-        };
-        return lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
+    async saveSurvey(data: any, churchList: any = []): Promise<any> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const apiPayload = await this.payload(data, churchList);
+                console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
+                const url = `http://192.168.0.109:8080/api/encuesta/create`;
+                const headersRequest = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
+                };
+                const res = await lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
+
+                resolve(res)
+            } catch (err) {
+                console.log('Error in save survey =>', err)
+                reject(err)
+            }
+        })
     }
 
-    async payload(features) {
-        const geoJson = JSON.stringify(features);
-        let payload: any = {},
+
+    async payload(features, churchList: any = []) {
+        const geoJson = await JSON.stringify(structuredClone(features));
+        const strJson = jsonMinify(geoJson)
+
+        const payload: any = {},
             admin0 = features?.properties.country,
             admin1 = features?.properties.state,
             admin2 = features?.properties.district,
@@ -583,13 +632,62 @@ export class MapService {
             admin2: admin2,
             admin3: admin3,
             admin4: admin4,
-            noWork: +this.churchList?.length ? false : true,
+            isMasterSurvey: true,
+            noWork: Array.isArray(churchList) && churchList?.length ? false : true,
             approvedDate: new Date(),
-            geojson: jsonMinify(geoJson),
+            geojson: strJson,
             approverName: 'Admin',
-            churchCount: this.churchList?.length
+            churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
         }
-        payload.newChurches = this.churchList;
+        payload.newChurches = structuredClone(churchList).map((cl) => {
+            let res = {
+                "name": cl?.name,
+                "organization": cl?.organization?.organizationName,
+                "memberCount": cl?.memberCount,
+                "workerCount": 1,
+                "phone_number": cl?.phone_number,
+                "localLanguage": cl?.language,
+                "peopleGroups": cl?.people_group,
+                "email": cl?.email,
+                "location": {
+                    "lat": cl?.geometry?.location?.lat,
+                    "lng": cl?.geometry?.location?.lng,
+                },
+                "workerName": cl?.worker_name,
+                "address": cl?.address,
+                "remarks": ""
+            }
+            return { ...cl, ...res }
+        });
+        return payload
+    }
+
+    saveStats(admin2,admin3, admin4, feature, churchCount): Promise<any> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const payload = this.statsPayload(feature, churchCount)
+                //console.log('payload =>', payload)
+                //const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${admin3}/${admin4}`;
+                const url = `http://192.168.0.111/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${admin2}/${admin3}/${admin4}`;
+                const res = await lastValueFrom(this.http.post(url, payload))
+                if (res) {
+                    console.log('Save Stats =>', res.data)
+                }
+                resolve(res)
+            } catch (error) {
+                console.log('Error in save stats =>', error)
+                reject(error)
+            }
+        })
+    }
+
+    statsPayload(feature, churchCount) {
+        let payload: any = {};
+        payload.no_member = 0
+        payload.no_church = Array.isArray(churchCount ) && churchCount?.length ? churchCount.length : 0
+        //payload.no_church = churchCount
+        payload.no_people = feature?.properties?.tot_p_2011
+        payload.no_house_hold = feature?.properties?.no_hh_2011
         return payload
     }
 

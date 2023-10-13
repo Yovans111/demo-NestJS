@@ -8,8 +8,8 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.setGlobalPrefix("api/v1");
 
-  // const se = app.getHttpServer(); // this is for extend the Http request time to 3 minutes
-  // se.timeout = 180000;
+   const se = app.getHttpServer(); // this is for extend the Http request time to 3 minutes
+   se.timeout = 60000;
 
   const config = new DocumentBuilder()
     .setTitle('Demo Swagger')

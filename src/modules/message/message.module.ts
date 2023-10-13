@@ -11,7 +11,7 @@ import { MessageGateway } from './gateway/message/message.gateway';
 @Module({
     imports: [
         CacheModule.register(),
-        TypeOrmModule.forFeature([MessageEntity,User]),
+        // TypeOrmModule.forFeature([MessageEntity,User]),
         ChatModule
     ],
     controllers: [MessageController],

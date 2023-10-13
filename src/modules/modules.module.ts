@@ -26,7 +26,7 @@ const Route: Routes = [
         UserModule,
         ChatModule,
         MessageModule,
-        TypeOrmModule.forFeature([User, Chat]),
+        // TypeOrmModule.forFeature([User, Chat]),
         RouterModule.register(Route),
     ],
 })

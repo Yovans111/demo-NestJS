@@ -11,7 +11,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User]),CacheModule.register(),
+        // TypeOrmModule.forFeature([User]),CacheModule.register(),
         JwtModule.register({
             secret: jwtConstants.secret,
             signOptions: { expiresIn: '2h' },

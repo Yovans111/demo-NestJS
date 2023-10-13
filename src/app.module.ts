@@ -13,17 +13,17 @@ import { Country, State, District, SubDistrict, Village } from './modules/user/m
 
 @Module({
   imports: [AuthModule, ModulesModule,
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username: 'root',
-      password: 'admin@123#2023',
-      database: 'mapData', //change to demo for other database
-      entities: [User, Chat, MessageEntity, Country, State, District, SubDistrict, Village],
-      connectTimeout: 180000 //3 min
-      // synchronize: true,
-    }),
+    // TypeOrmModule.forRoot({
+    //   type: 'mysql',
+    //   host: 'localhost',
+    //   port: 3306,
+    //   username: 'root',
+    //   password: 'admin@123#2023',
+    //   database: 'mapData', //change to demo for other database
+    //   entities: [User, Chat, MessageEntity, Country, State, District, SubDistrict, Village],
+    //   connectTimeout: 180000 //3 min
+    //   // synchronize: true,
+    // }),
     RouterModule.register([
       {
         path: '',

@@ -9,19 +9,19 @@ import { SocketGuard } from 'src/guards/socket/socket.guard';
 @Controller('auth')
 export class AuthController {
 
-    constructor(private authService: AuthService) { }
+    // constructor(private authService: AuthService) { }
 
-    @HttpCode(RESPONSE_CODE.SUCCESS)
-    @Post('/login')
-    async login(@Body() request: logInData): Promise<{ status: any, data?: logInReturnData, statusCode: number, message?: any }> {
-        const returnData = await this.authService.login(request);
-        if (returnData.statusCode == RESPONSE_CODE.SUCCESS) {
-            //@ts-ignore
-            return returnData
-        } else {
-            throw new BadRequestException(returnData)
-        }
-    }
+    // @HttpCode(RESPONSE_CODE.SUCCESS)
+    // @Post('/login')
+    // async login(@Body() request: logInData): Promise<{ status: any, data?: logInReturnData, statusCode: number, message?: any }> {
+    //     const returnData = await this.authService.login(request);
+    //     if (returnData.statusCode == RESPONSE_CODE.SUCCESS) {
+    //         //@ts-ignore
+    //         return returnData
+    //     } else {
+    //         throw new BadRequestException(returnData)
+    //     }
+    // }
 
 
 

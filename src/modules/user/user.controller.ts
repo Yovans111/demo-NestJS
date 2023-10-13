@@ -67,83 +67,83 @@ export class UserController {
 
     /** User **/
 
-    // @UseGuards(AuthGuard('jwt')) //tokenguard
-    @Post('save')
-    saveData(@Body() request: userData): any {
-        return this.userService.saveData(request);
-    }
+    // // @UseGuards(AuthGuard('jwt')) //tokenguard
+    // @Post('save')
+    // saveData(@Body() request: userData): any {
+    //     return this.userService.saveData(request);
+    // }
 
-    @ApiParam({ name: 'id' })
-    @Get('getById/:id')
-    getById(@Param() id: number): Promise<User | any> {
-        return this.userService.getById(id)
-    }
+    // @ApiParam({ name: 'id' })
+    // @Get('getById/:id')
+    // getById(@Param() id: number): Promise<User | any> {
+    //     return this.userService.getById(id)
+    // }
 
-    @Post('upload')
-    @UseInterceptors(FileInterceptor('file', {
-        storage: diskStorage({
-            destination: './src/assets/upload',
-            filename: (req, file, callback) => {
-                const name = file.originalname.split('.')[0];
-                const extension = file.originalname.split('.')[1];
-                const newName = name.split(' ').join('_') + '_' + Date.now() + '.' + extension;
-                callback(null, newName)
-            },
-        }),
-        fileFilter: (req, file, callback) => {
-            if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) { //for Image Only
-                return callback(null, false)
-            }
-            callback(null, true)
-        },
-    }))
-    fileUpload(@UploadedFile(new ParseFilePipe({
-        validators: [
-            new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }) //2mb (file cal => 1024 => 1kb -- 1024*1024 => 1mb -- 1024*1024*1024 => 1Gb)
-        ]
-    })) file: Express.Multer.File) {
-        if (!file) {
-            throw new BadRequestException('File is not a image')
-        } else {
-            const response = {
-                filePath: `${responseUrl}/user/getFile/${file.filename}`,
-                fileName: file.filename
-            }
-            return response
-        }
-    }
+    // @Post('upload')
+    // @UseInterceptors(FileInterceptor('file', {
+    //     storage: diskStorage({
+    //         destination: './src/assets/upload',
+    //         filename: (req, file, callback) => {
+    //             const name = file.originalname.split('.')[0];
+    //             const extension = file.originalname.split('.')[1];
+    //             const newName = name.split(' ').join('_') + '_' + Date.now() + '.' + extension;
+    //             callback(null, newName)
+    //         },
+    //     }),
+    //     fileFilter: (req, file, callback) => {
+    //         if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) { //for Image Only
+    //             return callback(null, false)
+    //         }
+    //         callback(null, true)
+    //     },
+    // }))
+    // fileUpload(@UploadedFile(new ParseFilePipe({
+    //     validators: [
+    //         new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }) //2mb (file cal => 1024 => 1kb -- 1024*1024 => 1mb -- 1024*1024*1024 => 1Gb)
+    //     ]
+    // })) file: Express.Multer.File) {
+    //     if (!file) {
+    //         throw new BadRequestException('File is not a image')
+    //     } else {
+    //         const response = {
+    //             filePath: `${responseUrl}/user/getFile/${file.filename}`,
+    //             fileName: file.filename
+    //         }
+    //         return response
+    //     }
+    // }
 
-    @Get('getFile/:filename')
-    getFile(@Param('filename') filename, @Res() response: Response) {
-        response.sendFile(filename, { root: './src/assets/upload' })
-        //for Delete File
-        // fs.unlink(`./src/assets/upload/${filename}`,(err) => {
-        //     console.log(err)
-        // })
-        // response.send('success').status(200).end()
-    }
+    // @Get('getFile/:filename')
+    // getFile(@Param('filename') filename, @Res() response: Response) {
+    //     response.sendFile(filename, { root: './src/assets/upload' })
+    //     //for Delete File
+    //     // fs.unlink(`./src/assets/upload/${filename}`,(err) => {
+    //     //     console.log(err)
+    //     // })
+    //     // response.send('success').status(200).end()
+    // }
 
 
-    @Post('upload-kml')
-    @UseInterceptors(FileInterceptor('file', {
-        storage: diskStorage({
-            destination: './src/assets',
-            filename: (req, file, callback) => {
-                const name = file.originalname
-                callback(null, name)
-            },
-        }),
-    }),)
-    async uploadKml(@UploadedFile() file: Express.Multer.File) {
-        try {
-            // return this.userService.getJsonData(); // Json extraction
-            // // Assuming you have previously defined the output folder path
-            const outputFolderPath = './src/assets/upload';
-            await this.kmlService.extractKmlFile(file.path, outputFolderPath)
-            return { message: 'File uploaded and data extracted successfully!' };
-        } catch (error) {
-            console.error('Error uploading and processing KML file:', error);
-            throw new InternalServerErrorException('Error processing KML file.');
-        }
-    }
+    // @Post('upload-kml')
+    // @UseInterceptors(FileInterceptor('file', {
+    //     storage: diskStorage({
+    //         destination: './src/assets',
+    //         filename: (req, file, callback) => {
+    //             const name = file.originalname
+    //             callback(null, name)
+    //         },
+    //     }),
+    // }),)
+    // async uploadKml(@UploadedFile() file: Express.Multer.File) {
+    //     try {
+    //         // return this.userService.getJsonData(); // Json extraction
+    //         // // Assuming you have previously defined the output folder path
+    //         const outputFolderPath = './src/assets/upload';
+    //         await this.kmlService.extractKmlFile(file.path, outputFolderPath)
+    //         return { message: 'File uploaded and data extracted successfully!' };
+    //     } catch (error) {
+    //         console.error('Error uploading and processing KML file:', error);
+    //         throw new InternalServerErrorException('Error processing KML file.');
+    //     }
+    // }
 }

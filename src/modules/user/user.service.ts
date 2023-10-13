@@ -1,41 +1,37 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import { User } from './entity/user.entity';
-import { ReturnAllUser, userData } from './user-dto.dto';
+import { Injectable } from '@nestjs/common';
 
 
 @Injectable()
 export class UserService {
 
-    constructor(
-        @InjectRepository(User)
-        private usersRepository: Repository<User>,
-        @InjectDataSource() private dataSource: DataSource
-    ) { }
-    async getUserData(): Promise<ReturnAllUser> {
-        const d = await this.usersRepository.find();
-        d.map((a: User) => {
-            delete a.password
-            return a
-        })
-        return { result: d, statusCode: HttpStatus.OK, message: 'success' }
-    }
+    // constructor(
+    //     @InjectRepository(User)
+    //     private usersRepository: Repository<User>,
+    //     @InjectDataSource() private dataSource: DataSource
+    // ) { }
+    // async getUserData(): Promise<ReturnAllUser> {
+    //     const d = await this.usersRepository.find();
+    //     d.map((a: User) => {
+    //         delete a.password
+    //         return a
+    //     })
+    //     return { result: d, statusCode: HttpStatus.OK, message: 'success' }
+    // }
 
-    saveData(data: userData) {
-        if (data?.id) {
-            return this.usersRepository.update(data?.id, data);
-        } else {
-            return this.usersRepository.save(data);
-        }
-    }
+    // saveData(data: userData) {
+    //     if (data?.id) {
+    //         return this.usersRepository.update(data?.id, data);
+    //     } else {
+    //         return this.usersRepository.save(data);
+    //     }
+    // }
 
-    async getById(id: any): Promise<User | any> {
-        // const q = await this.dataSource.query('SELECT user.id , user.name ,user.email_id,user.age  FROM `demo`.`user` as user WHERE user.id = 1 ')
-        const d = await this.usersRepository.findOneBy(id);
-        delete d.password
-        return d
-    }
+    // async getById(id: any): Promise<User | any> {
+    //     // const q = await this.dataSource.query('SELECT user.id , user.name ,user.email_id,user.age  FROM `demo`.`user` as user WHERE user.id = 1 ')
+    //     const d = await this.usersRepository.findOneBy(id);
+    //     delete d.password
+    //     return d
+    // }
 
 }
 
