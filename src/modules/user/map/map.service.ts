@@ -677,7 +677,7 @@ export class MapService {
 
 
     /* For create India upto village folder using Db  */
-
+    
 
     async getDataFromDb(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD') {
         const countryQuery = this.countryRepository.createQueryBuilder('c'),
@@ -687,40 +687,44 @@ export class MapService {
             villageQuery = this.villageRepository.createQueryBuilder('v'),
             wardQuery = this.wardRepository.createQueryBuilder('w'),
             cityQuery = this.cityRepository.createQueryBuilder('ci');
-        let streamData, keyName, keyId, query, select;
+        let streamData, query, select;
 
         switch (level) {
             case 'COUNTRY':
                 streamData = await countryQuery.stream();
-                keyName = 'country_name'
-                keyId = ''
                 query = 'SELECT select c.country_name from country as c where c.id ='
                 break;
             case 'STATE':
-                select = ['s.state_name as village_name', 's.properties as properties', 's.geometries as geometries','s.country_id as country_id','s.id as id']
+                select = ['s.state_name as state_name', 's.properties as properties', 's.geometries as geometries', 's.country_id as country_id', 's.id as id', 's.object_id as object_id']
                 streamData = await stateQuery.select(select).stream();
-                keyName = 'state_name'
-                keyId = 'country_id'
                 query = `
                 SELECT  c.country_name,s.state_name from state as s
                 INNER JOIN country as c on c.id = s.country_id
                 WHERE s.id = `
                 break;
             case 'DIST':
-                streamData = await districtQuery.stream();
-                keyName = 'district_name'
-                keyId = 'state_id'
+                select = ['d.district_name as district_name', 'd.properties as properties', 'd.geometries as geometries', 'd.state_id as state_id', 'd.id as id', 'd.object_id as object_id']
+                streamData = await districtQuery.select(select).stream();
+                query = `
+                select c.country_name,s.state_name,d.district_name from district as d
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where d.id =`
                 break;
             case 'SUB-DIST':
-                streamData = await subdistQuery.stream();
-                keyName = 'subdistrict_name'
-                keyId = 'district_id'
+                select = ['sd.subdistrict_name as subdistrict_name', 'sd.district_id as district_id', 'sd.properties as properties', 'sd.geometries as geometries', 'sd.id as id', 'sd.object_id as object_id']
+                streamData = await subdistQuery.select(select).stream();
+                query = `
+                select c.country_name,s.state_name,d.district_name,sd.subdistrict_name from subdistrict as sd
+                inner join district as d on d.id = sd.district_id
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where sd.id = `
                 break;
             case 'VILLAGE':
-                streamData = await villageQuery.stream();
-                keyName = 'village_name'
-                keyId = 'subdistrict_id'
-                query = `select c.country_name,s.state_name,d.district_name,sd.subdistrict_name,v.village_name from mapdata.village as v
+                select = ['v.village_name as village_name', 'v.subdistrict_id as subdistrict_id', 'v.properties as properties', 'v.geometries as geometries', 'v.id as id', 'v.object_id as object_id']
+                streamData = await villageQuery.select(select).stream();
+                query = `select c.country_name,s.state_name,d.district_name,sd.subdistrict_name,v.village_name from village as v
                 inner join subdistrict as sd on sd.id = v.subdistrict_id
                 inner join district as d on d.id = sd.district_id
                 inner join state as s on s.id = d.state_id
@@ -729,64 +733,62 @@ export class MapService {
                 break;
             case 'CITY':
                 streamData = await cityQuery.stream();
-                keyName = 'city_name'
-                keyId = 'district_id'
                 break;
             case 'WARD':
                 streamData = await wardQuery.stream();
-                keyName = 'ward_name'
-                keyId = 'city_id'
                 break;
         };
         console.log(`stream Start for level => ${level}`)
         let count = 0
         await streamData.on('data', async (d: any) => {
-            const prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+            let prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
             const geometry = typeof d?.geometries == 'string' ? JSON.parse(d?.geometries) : d?.geometries;
+            prop.object_id = d?.object_id;
             const features = {
+                "type": "Feature",
                 "properties": prop,
                 "geometry": geometry
             },
-                name = d[keyName], fkId = d[keyId],
                 json = await this.createJsonData(features);
             const joinDataArr = await this.dataSource.query(query + d?.id);
             const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
             count++
-            await this.createFolderAndSave(level, json, joinData, keyName, count);
+            await this.createFolderAndSave(level, json, joinData, count);
         })
     }
 
-    async createFolderAndSave(level, json, fullData, keyName, count = 0) {
-        let folderpath = '', outputFolderPath = `./src/assets/india_village`,
+    async createFolderAndSave(level, json, fullData, count = 0) {
+        let folderpath = '', outputFolderPath = `../../../../../../mapData/parseData/india_village`,
             countryName = this.replaceSpeChar(fullData?.country_name),
             stateName = this.replaceSpeChar(fullData?.state_name), distName = this.replaceSpeChar(fullData?.district_name),
             subDistName = this.replaceSpeChar(fullData?.subdistrict_name), villageName = this.replaceSpeChar(fullData?.village_name),
-            logMsg = ''
+            logMsg = '', fileName = '';
         switch (level) {
             case 'STATE':
                 folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}`, stateName);
                 logMsg = `File Creatad for state => ${stateName} `
+                fileName = stateName
                 break;
             case 'DIST':
                 folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}/${stateName}`, distName);
                 logMsg = `File Created For State => ${stateName} | dist => ${distName}`
+                fileName = distName
                 break;
             case 'SUB-DIST':
                 folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}/${stateName}/${distName}`, subDistName);
                 logMsg = `File Created For State => ${stateName} | subdist => ${subDistName}`
+                fileName = subDistName
                 break;
             case 'VILLAGE':
                 folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}/${stateName}/${distName}/${subDistName}/${villageName}`, villageName);
                 logMsg = `File Created For State => ${stateName} | dist => ${distName} | village =>${villageName}`
+                fileName = villageName
                 break;
         }
-        const res: any = await this.writeJsonFile(`${folderpath}`, this.replaceSpeChar(fullData?.[keyName]), json);
-        console.log(`${logMsg} | count => ${count}`)
+        const res: any = await this.writeJsonFile(`${folderpath}`, fileName, json);
+        console.log(`${logMsg} | count => ${count}`);
     }
 
-    getJoinData() {
-
-    }
 
     /* For survery churchs and remove dupicate churches */
 
