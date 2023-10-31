@@ -677,7 +677,7 @@ export class MapService {
 
 
     /* For create India upto village folder using Db  */
-    
+
 
     async getDataFromDb(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD') {
         const countryQuery = this.countryRepository.createQueryBuilder('c'),
@@ -691,8 +691,9 @@ export class MapService {
 
         switch (level) {
             case 'COUNTRY':
-                streamData = await countryQuery.stream();
-                query = 'SELECT select c.country_name from country as c where c.id ='
+                select = ['c.id as id','c.properties as properties', 'c.geometries as geometries','c.object_id as object_id']
+                streamData = await countryQuery.select(select).stream();
+                query = 'SELECT  c.country_name from country as c where c.id ='
                 break;
             case 'STATE':
                 select = ['s.state_name as state_name', 's.properties as properties', 's.geometries as geometries', 's.country_id as country_id', 's.id as id', 's.object_id as object_id']
@@ -723,6 +724,7 @@ export class MapService {
                 break;
             case 'VILLAGE':
                 select = ['v.village_name as village_name', 'v.subdistrict_id as subdistrict_id', 'v.properties as properties', 'v.geometries as geometries', 'v.id as id', 'v.object_id as object_id']
+                //.where('v.state_name = :value', { value: 'Andaman and Nicobar Islands' }) //for filter by state
                 streamData = await villageQuery.select(select).stream();
                 query = `select c.country_name,s.state_name,d.district_name,sd.subdistrict_name,v.village_name from village as v
                 inner join subdistrict as sd on sd.id = v.subdistrict_id
@@ -738,12 +740,14 @@ export class MapService {
                 streamData = await wardQuery.stream();
                 break;
         };
+        
         console.log(`stream Start for level => ${level}`)
-        let count = 0
+        let count = { totalCount: 0, forState: 0 }
         await streamData.on('data', async (d: any) => {
             let prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
             const geometry = typeof d?.geometries == 'string' ? JSON.parse(d?.geometries) : d?.geometries;
             prop.object_id = d?.object_id;
+            count.totalCount++
             const features = {
                 "type": "Feature",
                 "properties": prop,
@@ -752,18 +756,27 @@ export class MapService {
                 json = await this.createJsonData(features);
             const joinDataArr = await this.dataSource.query(query + d?.id);
             const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
-            count++
+            count.forState++
             await this.createFolderAndSave(level, json, joinData, count);
+
+        })
+        streamData.on('end', () => {
+            console.log('stream Completed ')
         })
     }
 
-    async createFolderAndSave(level, json, fullData, count = 0) {
+    async createFolderAndSave(level, json, fullData, count) {
         let folderpath = '', outputFolderPath = `../../../../../../mapData/parseData/india_village`,
             countryName = this.replaceSpeChar(fullData?.country_name),
             stateName = this.replaceSpeChar(fullData?.state_name), distName = this.replaceSpeChar(fullData?.district_name),
             subDistName = this.replaceSpeChar(fullData?.subdistrict_name), villageName = this.replaceSpeChar(fullData?.village_name),
             logMsg = '', fileName = '';
         switch (level) {
+            case 'COUNTRY':
+                folderpath = await this.createFolderForJson(`${outputFolderPath}`, countryName);
+                logMsg = `File Creatad for Country => ${countryName} `
+                fileName = countryName
+                break;
             case 'STATE':
                 folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}`, stateName);
                 logMsg = `File Creatad for state => ${stateName} `
@@ -780,13 +793,13 @@ export class MapService {
                 fileName = subDistName
                 break;
             case 'VILLAGE':
-                folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}/${stateName}/${distName}/${subDistName}/${villageName}`, villageName);
+                folderpath = await this.createFolderForJson(`${outputFolderPath}/${countryName}/${stateName}/${distName}/${subDistName}`, villageName);
                 logMsg = `File Created For State => ${stateName} | dist => ${distName} | village =>${villageName}`
                 fileName = villageName
                 break;
         }
         const res: any = await this.writeJsonFile(`${folderpath}`, fileName, json);
-        console.log(`${logMsg} | count => ${count}`);
+        console.log(`${logMsg} | count => ${count.forState} | totalCount => ${count.totalCount}`);
     }
 
 

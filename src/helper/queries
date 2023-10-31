@@ -47,6 +47,9 @@ SELECT CONCAT('UID', LPAD(id, 7, '0')) AS uid
 FROM yourTable;
 
 
+ SELECT SUBSTRING_INDEX(village_name, '_', 1) AS modified_name,village_name
+FROM mapdata.village where village_name like '%\_%';
+
 -- query builder for pagination
 
 --   const res = await listQuery.orderBy('order.created_at', 'DESC')

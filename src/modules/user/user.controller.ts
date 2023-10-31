@@ -76,11 +76,9 @@ export class UserController {
 
     @Get('saveJsonByFolder')
     async saveJsonByFolder() {
-        const data: any = await this.mapService.getDataFromDb('SUB-DIST');
+        const data: any = await this.mapService.getDataFromDb('COUNTRY');
         return data//JSON.stringify(data).replace(/\s/g, '')
     }
-
-
 
     /** User **/
 
