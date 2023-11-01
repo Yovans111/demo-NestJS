@@ -105,3 +105,46 @@ export class Village {
     @Column()
     object_id: string;
 }
+@Entity({name:'city'})
+export class City {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    city_name: string;
+
+    @Column()
+    geometries: string;
+
+    @Column()
+    properties: string;
+
+    @Column()
+    district_id: number;
+
+    @Column()
+    object_id: string;
+}
+@Entity()
+export class Ward {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    ward_name: string;
+
+    @Column()
+    geometries: string;
+
+    @Column()
+    properties: string;
+
+    @Column()
+    city_id: number;
+
+    @Column()
+    state_name: string;
+
+    @Column()
+    object_id: string;
+}

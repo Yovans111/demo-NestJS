@@ -5,7 +5,7 @@ import { User } from './entity/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { KmlService } from './map/kml.service';
 import { MapService } from './map/map.service';
-import { Country, District, State, SubDistrict, Village } from './map/entity/map.entity';
+import { City, Country, District, State, SubDistrict, Village, Ward } from './map/entity/map.entity';
 import { HttpModule } from '@nestjs/axios';
 
 const http = require('http'),
@@ -19,7 +19,7 @@ const http = require('http'),
       httpAgent: httpAgent,
       httpsAgent:httpsAgent
     }),
-    // TypeOrmModule.forFeature([Country, State, District, SubDistrict, Village, User])
+     TypeOrmModule.forFeature([Country, State, District, SubDistrict, Village, City, Ward])
   ], //User
   controllers: [UserController],
   providers: [UserService, KmlService, MapService],

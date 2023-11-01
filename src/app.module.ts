@@ -9,21 +9,21 @@ import { ModulesModule } from './modules/modules.module';
 import { Chat } from './modules/chat/entity/chat.entity';
 import { MessageEntity } from './modules/message/message.entity';
 import { LoginMiddleware } from './middleware/login/login.middleware';
-import { Country, State, District, SubDistrict, Village } from './modules/user/map/entity/map.entity';
+import { Country, State, District, SubDistrict, Village, Ward, City } from './modules/user/map/entity/map.entity';
 
 @Module({
   imports: [AuthModule, ModulesModule,
-    // TypeOrmModule.forRoot({
-    //   type: 'mysql',
-    //   host: 'localhost',
-    //   port: 3306,
-    //   username: 'root',
-    //   password: 'admin@123#2023',
-    //   database: 'mapData', //change to demo for other database
-    //   entities: [User, Chat, MessageEntity, Country, State, District, SubDistrict, Village],
-    //   connectTimeout: 180000 //3 min
-    //   // synchronize: true,
-    // }),
+    TypeOrmModule.forRoot({
+      type: 'mysql',
+      host: '162.241.224.20',
+      port: 3306,
+      username: 'mhsgloba_itoi_admin',
+      password: '0mx&4YU&6-lx',
+      database: 'mhsgloba_iif_dev', //change to demo for other database
+      entities: [ Country, State, District, SubDistrict, Village, City,Ward],
+      connectTimeout: 18000000 //30 min
+      // synchronize: true,
+    }),
     RouterModule.register([
       {
         path: '',

@@ -63,7 +63,10 @@ export class UserController {
         return data//JSON.stringify(data).replace(/\s/g, '')
     }
 
-
+    @Get('surveyandstats')
+    async surveyStats() {
+        return await this.mapService.getDataFromDb('VILLAGE');
+    }
 
     /** User **/
 
