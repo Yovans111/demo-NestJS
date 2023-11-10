@@ -65,8 +65,10 @@ export class UserController {
 
     @Get('surveyandstats')
     async surveyStats() {
-        return await this.mapService.getDataFromDb('VILLAGE');
+        return await this.mapService.getDataFromDb('WARD');
     }
+
+    
 
     /** User **/
 

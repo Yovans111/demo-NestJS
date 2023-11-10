@@ -37,6 +37,7 @@ export class MapService {
     ) { }
     //Json Extraction
 
+
     private createFolderForJson(basePath: string, folderName: string): string {
         const folderPath = `${basePath}/${folderName}`;
         if (!existsSync(folderPath)) {
@@ -533,26 +534,60 @@ export class MapService {
             case 'VILLAGE':
                 select = ['v.village_name as village_name', 'v.subdistrict_id as subdistrict_id', 'v.properties as properties', 'v.geometries as geometries', 'v.id as id', 'v.object_id as object_id']
                 //.where('v.state_name = :value', { value: 'Andaman and Nicobar Islands' }) //for filter by state
-                streamData = await villageQuery.select(select).where('v.state_name = :value', { value: 'Arunachal Pradesh' }).stream();
+                // streamData = await villageQuery.select(select)
+                //     .innerJoin(`subdistrict`, `subd`, `subd.id = v.subdistrict_id`)
+                //     .innerJoin(`district`, `dist`, `dist.id = subd.district_id`)
+                //     .where('v.state_name = :value', { value: 'Maharashtra' })
+                //     .andWhere('dist.district_name = :distValue', { distValue: 'Ahmednagar' })
+                //     .stream();
+                streamData = await villageQuery.select(select)
+                    .innerJoin('subdistrict', 'subd', 'subd.id = v.subdistrict_id')
+                    .innerJoin('district', 'dist', 'dist.id = subd.district_id')
+                    .where('v.state_name = :value', { value: 'Maharashtra' })
+                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Buldhana','Raigad'] })
+                    .stream();
+
                 query = `
                 select c.country_name as admin0,s.state_name as admin1,d.district_name as admin2,sd.subdistrict_name as admin3,v.village_name as admin4,v.object_id as object_id from village as v
                 inner join subdistrict as sd on sd.id = v.subdistrict_id
                 inner join district as d on d.id = sd.district_id
                 inner join state as s on s.id = d.state_id
                 inner join country as c on c.id = s.country_id
-                where v.id =`
+                where  v.id =`
                 break;
             case 'CITY':
                 streamData = await cityQuery.stream();
                 break;
             case 'WARD':
-                streamData = await wardQuery.stream();
+                select = ['w.ward_name as ward_name', 'w.city_id as city_id', 'w.properties as properties', 'w.geometries as geometries', 'w.id as id', 'w.object_id as object_id']
+                //.where('v.state_name = :value', { value: 'Andaman and Nicobar Islands' }) //for filter by state
+                // streamData = await villageQuery.select(select)
+                //     .innerJoin(`subdistrict`, `subd`, `subd.id = v.subdistrict_id`)
+                //     .innerJoin(`district`, `dist`, `dist.id = subd.district_id`)
+                //     .where('v.state_name = :value', { value: 'Maharashtra' })
+                //     .andWhere('dist.district_name = :distValue', { distValue: 'Ahmednagar' })
+                //     .stream();
+                streamData = await wardQuery.select(select)
+                    .innerJoin('city', 'subd', 'subd.id = w.city_id')
+                    .innerJoin('district', 'dist', 'dist.id = subd.district_id')
+                    .where('w.state_name = :value', { value: 'Maharashtra' })
+                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Pune'] })
+                    .stream();
+
+                query = `
+                select c.country_name as admin0,s.state_name as admin1,d.district_name as admin2,ci.city_name as admin3,w.ward_name as admin4,w.object_id as object_id from ward as w
+                inner join city as ci on ci.id = w.city_id
+                inner join district as d on d.id = ci.district_id
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where  w.id =`
                 break;
         };
 
 
         console.log(`stream Start for level => ${level}`)
         let count = { totalCount: 0, forState: 0 }
+
         await streamData.on('data', async (d: any) => {
             let prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
             const geometry = typeof d?.geometries == 'string' ? JSON.parse(d?.geometries) : d?.geometries;
@@ -563,23 +598,23 @@ export class MapService {
                 "properties": prop,
                 "geometry": geometry
             }
+            // console.log('state=>',d)
             const joinDataArr = await this.dataSource.query(query + d?.id);
             const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
             count.forState++;
-             await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4,geometry.coordinates, features,joinData.object_id)
-             console.log(`state => ${joinData.admin1} | vill => ${joinData.admin4} | count => ${count.forState} | totalCount => ${count.totalCount}`);
+            await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2,  joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
+            //await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2,  joinData.admin3 + '_city', joinData.admin4, geometry.coordinates, features, joinData.object_id)
+            console.log(`state => ${joinData.admin2} | ward => ${joinData.admin4} |city => ${joinData.admin3} |count => ${count.forState} | totalCount => ${count.totalCount}`);
         })
-        // streamData.on('end', () => {
-        //     console.log('stream Completed ')
-        // })
+
         streamData.on('error', (error) => {
             console.error('Error in streamData:', error);
-          });
-          
-          streamData.on('end', () => {
+        });
+
+        streamData.on('end', () => {
             console.log('Stream Completed');
-          });
-          
+        });
+
     }
 
     async createFolderAndSave(level, json, fullData, count) {
@@ -642,7 +677,7 @@ export class MapService {
     }
 
 
-    async surveyAndStats(admin0, admin1, admin2, admin3, admin4, polygon, features,object_id?) {
+    async surveyAndStats(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id?) {
         return new Promise(async (resolve, reject) => {
             const churchList = [];
             await this.getChurhes(admin0, admin1, admin2, admin3, admin4).then(async (res: any) => {
@@ -657,14 +692,21 @@ export class MapService {
                         // console.log('IsIn    side =>', isInside, `| ${admin2} | ${admin3} | ${admin4} | ch => ${e?.name}`)
                     })
                     try {
-                        const apiA: Observable<any> = from(this.saveSurvey(features, churchList)),
-                            apiB: Observable<any> = from(this.saveStats(object_id, features, churchList))
-                        await combineLatest({
-                            survey: apiA,
-                            stats: apiB
-                        }).subscribe((a) => {
-                            resolve(a);
-                        });
+                        // const apiA: Observable<any> = from(this.saveSurvey(features, churchList)),
+                        //     apiB: Observable<any> = from(this.saveStats(object_id, features, churchList))
+                        // await combineLatest({
+                        //     survey: apiA,
+                        //     stats: apiB
+                        // }).subscribe((a) => {
+                        //     resolve(a);
+                        // });
+                        Promise.all([
+                            this.saveSurvey(features, churchList),
+                            this.saveStats(object_id, features, churchList)
+                        ]).then((res) => {
+                            resolve(res)
+                        })
+                            .catch((err) => { console.log('Error in Combine =>', err) })
                     } catch (error) {
                         console.log('Error in Combine =>', error)
                     }
@@ -744,7 +786,7 @@ export class MapService {
         return new Promise(async (resolve, reject) => {
             try {
                 const apiPayload = await this.payload(data, churchList);
-                //console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
+                console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
                 const url = `http://192.168.0.129:8080/api/encuesta/create`;
                 const headersRequest = {
                     'Content-Type': 'application/json',
@@ -766,11 +808,13 @@ export class MapService {
         const strJson = jsonMinify(geoJson)
 
         const payload: any = {},
-            admin0 = features?.properties.country,
+            admin0 = 'India',
+            //admin0 = features?.properties.country,
             admin1 = features?.properties.state,
             admin2 = features?.properties.district,
-            admin3 = features?.properties.subdistrict,
-            admin4 = features?.properties.name;
+            admin3 = features.properties.cityname + ' City',
+            admin4 = (features?.properties.sourcewardname.replace(/[^a-zA-Z_ ]/g, '') + ' Wardno ' + features?.properties.sourcewardcode).replace(/\s+/g, ' ');
+
         payload.survey = {
             admin0: admin0,
             admin1: admin1,
@@ -806,8 +850,8 @@ export class MapService {
         });
         return payload
     }
-    
-    
+
+
 
     // saveStats(object_id, feature, churchCount): Promise<any> {
     //     return new Promise(async (resolve, reject) => {
@@ -826,25 +870,30 @@ export class MapService {
     //             reject(error)
     //         }
     //     })
-        async saveStats(object_id, feature, churchCount) {
-            try {
-              const payload = await this.statsPayload(feature, churchCount);
-              const url = `http://192.168.0.111/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}`;
-              //const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}`;
-              
-              const res = await lastValueFrom(this.http.post(url, payload, { timeout: 18000000 }));
-              
-              if (res) {
+
+
+
+
+
+
+    async saveStats(object_id, feature, churchCount) {
+        try {
+            const payload = await this.statsPayload(feature, churchCount);
+           // const url = `http://192.168.0.111/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}`;
+            const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}`;
+
+            const res = await lastValueFrom(this.http.post(url, payload, { timeout: 18000000 }));
+            if (res) {
                 console.log('Save Stats =>', res.data);
-              }
-              
-              return res;
-            } catch (error) {
-              console.log('Error in save stats =>', error);
-              throw error;
             }
-          }
-          
+
+            return res;
+        } catch (error) {
+            console.log('Error in save stats =>', error);
+            throw error;
+        }
+    }
+
 
     statsPayload(feature, churchCount) {
         let payload: any = {};
