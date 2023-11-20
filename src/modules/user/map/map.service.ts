@@ -7,10 +7,15 @@ import { Observable, catchError, combineLatest, delay, from, lastValueFrom, retr
 import { City, Country, District, State, SubDistrict, Village, Ward } from "./entity/map.entity";
 import { DataSource, ObjectId, Repository } from "typeorm";
 import axios from "axios";
+//import path from "path";
+import * as path from 'path';
+
+import pointInPolygon from 'point-in-polygon';
 const fsEx = require('fs-extra');
 
 const jsonMinify = require('jsonminify');
 const geojsonStream = require('geojson-stream');
+
 
 
 @Injectable()
@@ -488,7 +493,7 @@ export class MapService {
     /* For create India upto village folder using Db  */
 
 
-    async getDataFromDb(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD') {
+    async getDataFromDb(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD' | 'wardId') {
         const countryQuery = this.countryRepository.createQueryBuilder('c'),
             stateQuery = this.stateRepository.createQueryBuilder('s'),
             districtQuery = this.districtRepository.createQueryBuilder('d'),
@@ -544,7 +549,7 @@ export class MapService {
                     .innerJoin('subdistrict', 'subd', 'subd.id = v.subdistrict_id')
                     .innerJoin('district', 'dist', 'dist.id = subd.district_id')
                     .where('v.state_name = :value', { value: 'Maharashtra' })
-                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Buldhana','Raigad'] })
+                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Buldhana', 'Raigad'] })
                     .stream();
 
                 query = `
@@ -560,18 +565,11 @@ export class MapService {
                 break;
             case 'WARD':
                 select = ['w.ward_name as ward_name', 'w.city_id as city_id', 'w.properties as properties', 'w.geometries as geometries', 'w.id as id', 'w.object_id as object_id']
-                //.where('v.state_name = :value', { value: 'Andaman and Nicobar Islands' }) //for filter by state
-                // streamData = await villageQuery.select(select)
-                //     .innerJoin(`subdistrict`, `subd`, `subd.id = v.subdistrict_id`)
-                //     .innerJoin(`district`, `dist`, `dist.id = subd.district_id`)
-                //     .where('v.state_name = :value', { value: 'Maharashtra' })
-                //     .andWhere('dist.district_name = :distValue', { distValue: 'Ahmednagar' })
-                //     .stream();
                 streamData = await wardQuery.select(select)
                     .innerJoin('city', 'subd', 'subd.id = w.city_id')
                     .innerJoin('district', 'dist', 'dist.id = subd.district_id')
                     .where('w.state_name = :value', { value: 'Maharashtra' })
-                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Pune'] })
+                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Aurangabad'] })
                     .stream();
 
                 query = `
@@ -582,6 +580,8 @@ export class MapService {
                 inner join country as c on c.id = s.country_id
                 where  w.id =`
                 break;
+           
+
         };
 
 
@@ -602,9 +602,29 @@ export class MapService {
             const joinDataArr = await this.dataSource.query(query + d?.id);
             const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
             count.forState++;
-            await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2,  joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
+            const admin0 = joinData.admin0.replace(/[_-]/g, ''); 
+            const admin1 = joinData.admin1.replace(/[_-]/g, '');
+            const admin2 = joinData.admin2.replace(/[_-]/g, ''); 
+            const admin3 = joinData.admin3.replace(/[_-]/g, '')+ ' City';
+            const admin4 = joinData.admin4.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());
+            try {
+                const { data: churchCount } = await this.getChurchCount(admin0, admin1, admin2, admin3, admin4);
+                console.log('objectid=>'+ joinData.object_id,'Church count:', churchCount,'admin0=>'+admin0,'admin1=>'+admin1,'admin2=>'+admin2,'admin3=>'+admin3,'admin4=>'+admin4);
+
+                await this.saveStats(joinData.object_id,features, churchCount);
+              } catch (error) {
+                console.error('Error =>', error);
+              }
+              
+           // const churchCount = await this.getChurchCount(admin0, admin1, admin2, admin3, admin4);
+            
+           // console.log('Church count=>' , churchCount);
+
+            //const churchCount = await this.getChurchCount(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4);
+           // await this.saveStats(joinData.object_id, features, churchCount);
+           // await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
             //await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2,  joinData.admin3 + '_city', joinData.admin4, geometry.coordinates, features, joinData.object_id)
-            console.log(`state => ${joinData.admin2} | ward => ${joinData.admin4} |city => ${joinData.admin3} |count => ${count.forState} | totalCount => ${count.totalCount}`);
+           // console.log(`state => ${joinData.admin2} | ward => ${joinData.admin4} |city => ${joinData.admin3} |count => ${count.forState} | totalCount => ${count.totalCount}`);
         })
 
         streamData.on('error', (error) => {
@@ -761,7 +781,7 @@ export class MapService {
                             //  console.log(`count => ${churchCount['data']} | total => ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
                             //  this.saveStats(admin2, admin3, admin4, features, churchCount['data'])
 
-                            await this.surveyAndStats(admin0, admin1, admin2, admin3, admin4, polygon, features);
+                            //await this.surveyAndStats(admin0, admin1, admin2, admin3, admin4, polygon, features);
                         })
                         distFeatureMap.set(k, []);
                     });
@@ -813,9 +833,13 @@ export class MapService {
             admin1 = features?.properties.state,
             admin2 = features?.properties.district,
             admin3 = features.properties.cityname + ' City',
-            admin4 = (features?.properties.sourcewardname.replace(/[^a-zA-Z_ ]/g, '') + ' Wardno ' + features?.properties.sourcewardcode).replace(/\s+/g, ' ');
+            // admin4 = (features?.properties.sourcewardname.replace(/[^a-zA-Z_ ]/g, '') + ' Wardno ' + features?.properties.sourcewardcode).replace(/\s+/g, ' ');
+            admin4 = features?.properties.name ? features.properties.name.replace('_', ' ').replace(/(?:^|\s)\S/g, (match) => match.toUpperCase()) : null;
+
+
 
         payload.survey = {
+
             admin0: admin0,
             admin1: admin1,
             admin2: admin2,
@@ -876,11 +900,11 @@ export class MapService {
 
 
 
-    async saveStats(object_id, feature, churchCount) {
+    async saveStats(object_id , feature, churchCount) {
         try {
             const payload = await this.statsPayload(feature, churchCount);
-           // const url = `http://192.168.0.111/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}`;
-            const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}`;
+            // const url = `http://192.168.0.111/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}`;
+            const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/1`;
 
             const res = await lastValueFrom(this.http.post(url, payload, { timeout: 18000000 }));
             if (res) {
@@ -898,8 +922,8 @@ export class MapService {
     statsPayload(feature, churchCount) {
         let payload: any = {};
         payload.no_member = 0
-        payload.no_church = Array.isArray(churchCount) && churchCount?.length ? churchCount.length : 0
-        //payload.no_church = churchCount
+       // payload.no_church = Array.isArray(churchCount) && churchCount?.length ? churchCount.length : 0
+        payload.no_church = churchCount
         payload.no_people = feature?.properties?.tot_p_2011
         payload.no_house_hold = feature?.properties?.no_hh_2011
         return payload
@@ -923,6 +947,191 @@ export class MapService {
         }
         return inside;
     }
+
+
+
+
+
+
+    /***** check the location ****/
+
+
+
+    readJsonFile1(filePath: string): any {
+        try {
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            return JSON.parse(fileContent);
+        } catch (error) {
+            console.error(`Error reading JSON file at path ${filePath}:`, error);
+            return null;
+        }
+    }
+    async readJsonFile2(wardFolderPath: string): Promise<any> {
+        try {
+            const filesInWardFolder = await fs.promises.readdir(wardFolderPath);
+            const jsonFiles = filesInWardFolder.filter(file => file.endsWith('.json'));
+            if (jsonFiles.length === 1) {
+                const wardJsonPath = path.join(wardFolderPath, jsonFiles[0]);
+                const jsonContent = await fs.promises.readFile(wardJsonPath, 'utf8');
+                let jsonData = JSON.parse(jsonContent);
+                if (!Array.isArray(jsonData)) {
+                    jsonData = [jsonData];
+                }
+
+                return jsonData;
+            } else if (jsonFiles.length === 0) {
+                console.log(`No JSON files found in ${wardFolderPath}`);
+            } else {
+                console.log(`Multiple JSON files found in ${wardFolderPath}. Expected only one.`);
+            }
+
+            return null;
+        } catch (error) {
+            console.error(`Error reading JSON files in ward folder at path ${wardFolderPath}:`, error);
+            return null;
+        }
+    }
+
+
+
+
+
+    writeJsonFile1(filePath: string, data: any): void {
+        const content = JSON.stringify(data, null, 2);
+        fs.writeFileSync(filePath, content, 'utf8');
+    }
+
+
+    listFiles(dir: string, extension: string): string[] {
+        const files: string[] = [];
+
+        function walk(currentDir: string) {
+            const entries = fs.readdirSync(currentDir);
+
+            entries.forEach((entry) => {
+                const fullPath = path.join(currentDir, entry);
+                if (fs.statSync(fullPath).isDirectory()) {
+                    walk(fullPath);
+                } else if (entry.endsWith(extension)) {
+                    files.push(fullPath);
+                }
+            });
+        }
+
+        walk(dir);
+
+        //console.log('JSON Files in', dir, ':', files);
+
+        return files;
+    }
+
+
+
+    getPuneCityWards(puneCityPath: string): any[] {
+        const wardFiles = this.listFiles(puneCityPath, '.json');
+        const puneCityWards: any[] = [];
+
+        wardFiles.forEach((wardFile) => {
+            const wardData = this.readJsonFile1(wardFile);
+            puneCityWards.push(wardData);
+
+            //console.log(`Path of ${path.basename(wardFile)}:`);
+            // console.log(wardFile);
+            //console.log('Polygon Coordinates:', JSON.stringify(wardData.geometry.coordinates));
+        });
+
+        return puneCityWards;
+    }
+
+
+
+    filterByAdmin3(data: any[], admin3Value: string): any[] {
+        const normalizedAdmin3 = admin3Value.toLowerCase();
+
+        return data.filter((item) => {
+            const itemAdmin3 = item.admin2 ? item.admin2.toLowerCase() : '';
+
+            return itemAdmin3 === normalizedAdmin3;
+        });
+    }
+
+
+    processMatchingDataWithCustomCheck(wardData: any[], encuestaData: any[]): any {
+        const updatedData = encuestaData.map((church) => {
+            const location = church.location;
+            const matchingWard = wardData.find((ward) => {
+                if (ward.geometry && ward.geometry.coordinates) {
+                    const coordinates = ward.geometry.coordinates;
+                    // console.log("location" + location);
+                    //console.log("coordinates" + coordinates);
+                    return this.isMarkerInsidePolygon(location, coordinates);
+                }
+                return false;
+            });
+
+            if (matchingWard) {
+                console.log('Match Found!');
+                church.admin3 = 'Nagpur City'
+                church.admin4 = matchingWard.properties.name;
+                //church.admin4 = matchingWard.properties.name;
+                console.log('Matching Ward Properties:', matchingWard.properties);
+                console.log('Church Location:', location);
+                //console.log('Matching Ward Polygon:', matchingWard.geometry.coordinates[0]);
+                console.log("admin4=>" + church.admin4);
+                console.log("admin3=>" + church.admin3);
+            } else {
+                console.log('No Match Found:');
+                // console.log('Church Location:', location);
+            }
+
+            return church;
+        });
+
+        return updatedData;
+    }
+
+    /****add name field in json ****/
+
+
+
+    async addNameField(inpath) {
+        try {
+            const wardFolders = await fs.promises.readdir(inpath);
+            let totalFilesWritten = 0;
+
+            for (const wardFolder of wardFolders) {
+                const wardFolderPath = path.join(inpath, wardFolder);
+
+                try {
+                    const jsonData = await this.readJsonFile2(wardFolderPath);
+
+                    if (jsonData && jsonData.length > 0) {
+                        const feature = jsonData[0];
+
+                        const sourceWardCode = feature?.properties?.sourcewardcode;
+                        const nameFieldValue = 'Wardno ' + sourceWardCode;
+                        feature.properties.name = nameFieldValue;
+
+                        const jsonFilePath = path.join(wardFolderPath, `${wardFolder}.json`);
+                        fs.writeFileSync(jsonFilePath, JSON.stringify(feature, null, 2));
+                        totalFilesWritten++;
+                        console.log(`Name field added ${jsonFilePath}`);
+                    }
+                } catch (error) {
+                    console.error(`Error reading ${wardFolder}:`, error);
+                }
+            }
+
+            console.log(`Total files written: ${totalFilesWritten}`);
+            console.log('Ward folder processing complete.');
+        } catch (error) {
+            console.error('Error during ward folder processing:', error);
+        }
+    }
+
+
+
+
 }
 
 export class FeatureCollection {
@@ -934,4 +1143,6 @@ export class FeatureCollection {
         }
         return this.type;
     }
+
+
 }

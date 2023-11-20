@@ -16,8 +16,12 @@ import { MapService } from './map/map.service';
 @Controller()
 export class UserController {
 
-    constructor(private userService: UserService, private kmlService: KmlService, private mapService: MapService) { }
-
+    // constructor(private userService: UserService, private kmlService: KmlService, private mapService: MapService) { }
+    constructor(
+        private readonly userService: UserService,
+        private readonly kmlService: KmlService,
+        private readonly mapService: MapService
+    ) { }
     // @UseGuards(AuthGuard('jwt')) //tokenguard
     @Get('get')
     getHello(): any {
@@ -68,7 +72,48 @@ export class UserController {
         return await this.mapService.getDataFromDb('WARD');
     }
 
-    
+    @Get('location')
+    async processData(): Promise<any> {
+        console.log('Starting the process...');
+
+        const puneCityPath = 'C:/Project/Map/nagpur_city';
+        const encuestaData = await this.mapService.readJsonFile1('C:/Project/Map/Final/iif-local.encuesta_churches.json');
+        const wardData = this.mapService.getPuneCityWards(puneCityPath);
+        const puneCityEncuestaData = this.mapService.filterByAdmin3(encuestaData, 'Nagpur');
+        const updatedData = this.mapService.processMatchingDataWithCustomCheck(wardData, puneCityEncuestaData);
+        // const updatedData = this.mapService.processMatchingDataWithCustomCheck(wardData, puneCityEncuestaData);
+
+        // updatedData.forEach((church) => {
+        //   //console.log(`Admin3 Value: ${church.admin3}`);
+        //   //console.log(`Admin4 Value: ${church.admin4}`);
+        //  // console.log('Location Before:', [church.location.lat, church.location.lng]);
+        //   const matchingWard = this.mapService.findMatchingWardWithCustomCheck(wardData, [church.latitude, church.longitude]);
+        //  // console.log('Location After:', [church.location.lat, church.location.lng]);
+        //   if (matchingWard) {
+        //     console.log(`Matching Ward Name: ${matchingWard.wardName}`);
+        //   } else {
+        //     console.log(`No Matching Ward Found for Location: [${church.latitude}, ${church.longitude}]`);
+        //   }
+
+        // });
+      //  console.log("Final Results=>" + JSON.stringify(updatedData, null, 2));
+      const matchingData = updatedData.filter((church) => {
+        return church.admin3 === 'Nagpur City' && church.admin4; 
+    });
+        this.mapService.writeJsonFile1('C:/Project/Map/output/iif-local.encuesta_churches.json', matchingData);
+
+        console.log('Process completed.');
+        return 'Data processed and written to output.json';
+    }
+
+
+    @Get('name')
+    addName(): any {
+        const inpath = 'src/assets/ward/aurangabad_city';
+        return this.mapService.addNameField(inpath);
+    }
+
+
 
     /** User **/
 
