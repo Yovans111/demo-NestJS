@@ -69,14 +69,24 @@ export class UserController {
         return data//JSON.stringify(data).replace(/\s/g, '')
     }
 
-    @Get('surveyandstats')
-    async surveyStats() {
-        return await this.mapService.getDataFromDb('VILLAGE');
+    // @Get('surveyandstats')
+    // async surveyStats() {
+    //     return await this.mapService.getDataFromDb('VILLAGE');
+    // }
+
+    @Get('surveyandstats/:stateName/:districtName')
+    async surveyStats(@Param('stateName') stateName: string, @Param('districtName') districtName: string) {
+        return await this.mapService.getDataFromDb('VILLAGE', stateName, districtName);
     }
 
-    @Get('surveyandstatsward')
-    async surveyStatsward() {
-        return await this.mapService.getDataFromDbWard('WARD');
+    // @Get('surveyandstatsward')
+    // async surveyStatsward() {
+    //     return await this.mapService.getDataFromDbWard('WARD');
+    // }
+
+    @Get('surveyandstatsward/:stateName/:districtName/:cityName')
+    async surveyStatsward(@Param('stateName') stateName: string, @Param('districtName') districtName: string,@Param('cityName') cityName: string) {
+        return await this.mapService.getDataFromDbWard('WARD', stateName, districtName, cityName);
     }
 
     @Get('location')
