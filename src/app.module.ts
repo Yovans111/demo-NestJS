@@ -23,6 +23,7 @@ import { Country, State, District, SubDistrict, Village, Ward, City } from './mo
       entities: [ Country, State, District, SubDistrict, Village, City,Ward],
       connectTimeout: 18000000 //30 min
       // synchronize: true,
+      
     }),
     RouterModule.register([
       {

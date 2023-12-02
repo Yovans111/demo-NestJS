@@ -774,8 +774,8 @@ export class MapService {
             const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
             count.forState++;
         
-             const admin3 = joinData.admin3.replace(/[_-]/g, '')+ ' City';
-              const admin4 = joinData.admin4.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());
+            //  const admin3 = joinData.admin3.replace(/[_-]/g, '')+ ' City';
+            //   const admin4 = joinData.admin4.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());
         //    //const admin4 = joinData.admin4.replace(/[_-]/g, '').replace(/^\s*No\s*/i, 'Wardno ').replace(/(\d+)/, ' $1').trim().replace(/^\w/, (c) => c.toUpperCase());
 
 
@@ -792,7 +792,7 @@ export class MapService {
 
             //const churchCount = await this.getChurchCount(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4);
            // await this.saveStats(joinData.object_id, features, churchCount);
-           await this.surveyAndStatsWard(joinData.admin0, joinData.admin1, joinData.admin2,admin3, admin4, geometry.coordinates, features, joinData.object_id)
+           await this.surveyAndStatsWard(joinData.admin0, joinData.admin1, joinData.admin2,joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
             //await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2,  joinData.admin3 + '_city', joinData.admin4, geometry.coordinates, features, joinData.object_id)
             // console.log(`state => ${joinData.admin2} | ward => ${joinData.admin4} |city => ${joinData.admin3} |count => ${count.forState} | totalCount => ${count.totalCount}`);
         })
@@ -965,7 +965,7 @@ export class MapService {
 
 
 
-  ;
+  
 
 async surveyAndStatsWard( admin0, admin1, admin2, admin3, admin4, polygon,features, object_id?) {
     return new Promise(async (resolve, reject) => {
@@ -974,13 +974,14 @@ async surveyAndStatsWard( admin0, admin1, admin2, admin3, admin4, polygon,featur
 
         try {
             
-            const client = await MongoClient.connect('mongodb://192.168.86.18:27017');
+            const client = await MongoClient.connect('mongodb://localhost:27017');
+           //const client = await MongoClient.connect('mongodb://192.168.86.18:27017');
            // const client = await MongoClient.connect('mongodb+srv://itoi:Yu7blcAMUUC8jAFU@cluster0-oi4s9.mongodb.net/iif-dev-db?retryWrites=true&w=majority');
            // const db = client.db('iif-dev-db');
             const db = client.db('iif-local');
 
-            const churchCollection = await db.collection('google_state_churches').find({ }).toArray();
-
+            const churchCollection = await db.collection('google_state_churches').find({ admin3: admin3 }).toArray();
+            const res = await this.removeDuplicate(churchCollection);
             for (const church of churchCollection) {
                 const churchLocation = church.geometry?.location;
                 const isInside = this.isMarkerInsidePolygon(churchLocation, polygon);
@@ -989,9 +990,12 @@ async surveyAndStatsWard( admin0, admin1, admin2, admin3, admin4, polygon,featur
                    
                     churchList.push(church);
                     try {
-                        
-                    
+                       // console.log('Reading church data:', church);
+
+                        //console.log('church list=>',churchList);
+                        console.log('features=>',features);
                         await Promise.all([
+                            
                             this.saveSurveyWard(features, churchList),
                             this.saveStatsWard(object_id, features, churchList)
                         ]);
@@ -1101,12 +1105,13 @@ async surveyAndStatsWard( admin0, admin1, admin2, admin3, admin4, polygon,featur
     }
 
   
-    saveSurveyWard(data: any, churchList: any = []): Promise<any> {
+    saveSurveyWard(features: any, churchList: any = []): Promise<any> {
         return new Promise(async (resolve, reject) => {
             try {
-                const apiPayload = await this.payloadWard(data, churchList);
+                const apiPayload = await this.payloadWard(features, churchList);
                 console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
-                const url = `http://192.168.86.18:8080/api/encuesta/create`;
+                //const url = `http://192.168.86.18:8080/api/encuesta/create`;
+               const url =`http://143.110.182.115:8080/api/encuesta/create`;
                 const headersRequest = {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
@@ -1193,7 +1198,7 @@ async surveyAndStatsWard( admin0, admin1, admin2, admin3, admin4, polygon,featur
            // admin2 = 'Nagpur',
             //admin3 = features?.properties.subdistrict,
             admin3 = features.properties.cityname + ' City',
-            admin4 = features.properties.name;
+            admin4 = features.properties.name.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());;
             // admin4 = (features?.properties.sourcewardname.replace(/[^a-zA-Z_ ]/g, '') + ' Wardno ' + features?.properties.sourcewardcode).replace(/\s+/g, ' ');
            // admin4 = features?.properties.name ? features.properties.name.replace('_', ' ').replace(/(?:^|\s)\S/g, (match) => match.toUpperCase()) : null;
            // admin4 = 'Wardno ' + features?.properties.sourcewardcode;
