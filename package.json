@@ -39,7 +39,7 @@
     "@nestjs/typeorm": "^10.0.0",
     "@nestjs/websockets": "^10.0.3",
     "axios": "^1.6.2",
-    "axios-retry": "^3.8.1",
+    "axios-retry": "^3.9.1",
     "cache-manager": "^5.2.3",
     "circular-json": "^0.5.9",
     "class-transformer": "^0.5.1",
