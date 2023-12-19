@@ -9,6 +9,8 @@ import { userData } from './user-dto.dto';
 import { UserService } from './user.service';
 import { KmlService } from './map/kml.service';
 import { MapService } from './map/map.service';
+//import { MongoClient } from 'typeorm';
+import { MongoClient } from 'mongodb';
 
 @ApiBearerAuth('JWT-auth')
 @ApiTags('User')
@@ -122,7 +124,44 @@ export class UserController {
     }
 
 
+    // @Get('surveyandstatswardoutside/:stateName/:districtName')
+    // async surveyStatsOutBoundary(@Param('stateName') stateName: string, @Param('districtName') districtName: string) {
+    //     return await this.mapService.getDataFromDbWardOutBoundary('WARD', stateName, districtName);
+    // }
 
+    
+
+
+    @Get('surveyandstatswardoutside')
+  async surveyStatsOutBoundary() {
+    let client: MongoClient | undefined;
+
+    try {
+      client = await MongoClient.connect('mongodb://localhost:27017/');
+      const db = client.db('iif-local');
+
+      const geocodeData = await db.collection('geocode_responses').findOne({});
+
+      if (!geocodeData) {
+        throw new Error('No geocode data found.');
+      }
+
+      const stateName = geocodeData.address.state;
+    //   const districtName = geocodeData.address.state_district;
+      const districtName = geocodeData.address.county;
+      const result1 = await this.mapService.getDataFromDbWardOutBoundary('WARD', stateName, districtName);
+      const result2 = await this.mapService.getDataFromDbVillageOutBoundary('VILLAGE', stateName, districtName);
+      return {result1,result2};
+    } catch (error) {
+      console.error('Error in surveyStatsOutBoundary:', error);
+      throw new Error('Error in surveyStatsOutBoundary.');
+    } finally {
+      if (client) {
+        await client.close();
+      }
+    }
+  }
+    
     /** User **/
 
     // // @UseGuards(AuthGuard('jwt')) //tokenguard

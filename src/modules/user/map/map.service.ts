@@ -44,6 +44,7 @@ export class MapService {
         private dataSource: DataSource,
         private http: HttpService,
         private httpService: HttpService
+        
     ) { }
     //Json Extraction
 
@@ -719,6 +720,142 @@ export class MapService {
 
 
 
+
+
+
+    async getDataFromDbVillageOutBoundary(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD' | 'wardId', stateName: string, districtName: string) {
+        const countryQuery = this.countryRepository.createQueryBuilder('c'),
+            stateQuery = this.stateRepository.createQueryBuilder('s'),
+            districtQuery = this.districtRepository.createQueryBuilder('d'),
+            subdistQuery = this.subDistrictRepository.createQueryBuilder('sd'),
+            villageQuery = this.villageRepository.createQueryBuilder('v'),
+            wardQuery = this.wardRepository.createQueryBuilder('w'),
+            cityQuery = this.cityRepository.createQueryBuilder('ci');
+        let streamData, query, select;
+
+        switch (level) {
+            case 'COUNTRY':
+                select = ['c.id as id', 'c.properties as properties', 'c.geometries as geometries', 'c.object_id as object_id']
+                streamData = await countryQuery.select(select).stream();
+                query = 'SELECT  c.country_name from country as c where c.id ='
+                break;
+            case 'STATE':
+                select = ['s.state_name as state_name', 's.properties as properties', 's.geometries as geometries', 's.country_id as country_id', 's.id as id', 's.object_id as object_id']
+                streamData = await stateQuery.select(select).stream();
+                query = `
+                SELECT  c.country_name,s.state_name from state as s
+                INNER JOIN country as c on c.id = s.country_id
+                WHERE s.id = `
+                break;
+            case 'DIST':
+                select = ['d.district_name as district_name', 'd.properties as properties', 'd.geometries as geometries', 'd.state_id as state_id', 'd.id as id', 'd.object_id as object_id']
+                streamData = await districtQuery.select(select).stream();
+                query = `
+                select c.country_name,s.state_name,d.district_name from district as d
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where d.id =`
+                break;
+            case 'SUB-DIST':
+                select = ['sd.subdistrict_name as subdistrict_name', 'sd.district_id as district_id', 'sd.properties as properties', 'sd.geometries as geometries', 'sd.id as id', 'sd.object_id as object_id']
+                streamData = await subdistQuery.select(select).stream();
+                query = `
+                select c.country_name,s.state_name,d.district_name,sd.subdistrict_name from subdistrict as sd
+                inner join district as d on d.id = sd.district_id
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where sd.id = `
+                break;
+            case 'VILLAGE':
+                select = ['v.village_name as village_name', 'v.subdistrict_id as subdistrict_id', 'v.properties as properties', 'v.geometries as geometries', 'v.id as id', 'v.object_id as object_id']
+                //.where('v.state_name = :value', { value: 'Andaman and Nicobar Islands' }) //for filter by state
+                // streamData = await villageQuery.select(select)
+                //     .innerJoin(`subdistrict`, `subd`, `subd.id = v.subdistrict_id`)
+                //     .innerJoin(`district`, `dist`, `dist.id = subd.district_id`)
+                //     .where('v.state_name = :value', { value: 'Maharashtra' })
+                //     .andWhere('dist.district_name = :distValue', { distValue: 'Ahmednagar' })
+                //     .stream();
+                streamData = await villageQuery.select(select)
+                    .innerJoin('subdistrict', 'subd', 'subd.id = v.subdistrict_id')
+                    .innerJoin('district', 'dist', 'dist.id = subd.district_id')
+                    // .where('v.state_name = :value', { value: 'Tamil Nadu' }) 
+                    // .andWhere('dist.district_name IN (:...districts)', { districts: ['Dharmapuri',
+                    //  'Dindigul','Erode'] })
+                    .where('v.state_name = :stateName', { stateName })
+                    .andWhere('dist.district_name = :districtName', { districtName })
+                    .stream();
+
+                query = `
+                select c.country_name as admin0,s.state_name as admin1,d.district_name as admin2,sd.subdistrict_name as admin3,v.village_name as admin4,v.object_id as object_id from village as v
+                inner join subdistrict as sd on sd.id = v.subdistrict_id
+                inner join district as d on d.id = sd.district_id
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where  v.id =`
+                break;
+            case 'CITY':
+                streamData = await cityQuery.stream();
+                break;
+            case 'WARD':
+                select = ['w.ward_name as ward_name', 'w.city_id as city_id', 'w.properties as properties', 'w.geometries as geometries', 'w.id as id', 'w.object_id as object_id']
+                streamData = await wardQuery.select(select)
+                    .innerJoin('city', 'ci', 'ci.id = w.city_id')
+                    .innerJoin('district', 'dist', 'dist.id = ci.district_id')
+                    .where('w.state_name = :value', { value: 'Tamil Naadu' })
+                    .andWhere('dist.district_name IN (:...districts)', { districts: ['Karur'] })
+                    //.andWhere('ci.city_name = :cityName', { cityName: 'Nagpur' })
+                    .stream();
+
+                query = `
+                select c.country_name as admin0,s.state_name as admin1,d.district_name as admin2,ci.city_name as admin3,w.ward_name as admin4,w.object_id as object_id from ward as w
+                inner join city as ci on ci.id = w.city_id
+                inner join district as d on d.id = ci.district_id
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where  w.id =`
+                break;
+
+
+        };
+
+
+        console.log(`stream Start for level => ${level}`)
+        let count = { totalCount: 0, forState: 0 }
+
+        await streamData.on('data', async (d: any) => {
+            let prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+            const geometry = typeof d?.geometries == 'string' ? JSON.parse(d?.geometries) : d?.geometries;
+            prop.object_id = d?.object_id;
+            count.totalCount++
+            const features = {
+                "type": "Feature",
+                "properties": prop,
+                "geometry": geometry
+            }
+            // console.log('state=>',d)
+            const joinDataArr = await this.dataSource.query(query + d?.id);
+            const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
+            count.forState++;
+            await this.surveyAndStatsVillageOutside(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
+            //await this.surveyAndStats(joinData.admin0, joinData.admin1, joinData.admin2,  joinData.admin3 + '_city', joinData.admin4, geometry.coordinates, features, joinData.object_id)
+            console.log(`state => ${joinData.admin2} | ward => ${joinData.admin4} |city => ${joinData.admin3} |count => ${count.forState} | totalCount => ${count.totalCount}`);
+        })
+
+        streamData.on('error', (error) => {
+            console.error('Error in streamData:', error);
+        });
+
+        streamData.on('end', () => {
+            console.log('Stream Completed');
+        });
+
+    }
+
+
+
+
+
+
     async getDataFromDbWard(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD' | 'wardId', stateName: string, districtName: string, cityName: string) {
         const countryQuery = this.countryRepository.createQueryBuilder('c'),
             stateQuery = this.stateRepository.createQueryBuilder('s'),
@@ -807,6 +944,87 @@ export class MapService {
         });
 
     }
+
+
+
+
+
+
+
+    async getDataFromDbWardOutBoundary(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD' | 'wardId', stateName: string, districtName: string) {
+       
+       
+       
+        const countryQuery = this.countryRepository.createQueryBuilder('c'),
+            stateQuery = this.stateRepository.createQueryBuilder('s'),
+            districtQuery = this.districtRepository.createQueryBuilder('d'),
+            subdistQuery = this.subDistrictRepository.createQueryBuilder('sd'),
+            villageQuery = this.villageRepository.createQueryBuilder('v'),
+            wardQuery = this.wardRepository.createQueryBuilder('w'),
+            cityQuery = this.cityRepository.createQueryBuilder('ci');
+        let streamData, query, select;
+        switch (level) {
+
+
+            case 'WARD':
+                select = ['w.ward_name as ward_name', 'w.city_id as city_id', 'w.properties as properties', 'w.geometries as geometries', 'w.id as id', 'w.object_id as object_id']
+                streamData = await wardQuery.select(select)
+                    .innerJoin('city', 'ci', 'ci.id = w.city_id')
+                    .innerJoin('district', 'dist', 'dist.id = ci.district_id')
+                    // .where('w.state_name = :value', { value: 'Tamil Naadu' })
+                    // .andWhere('dist.district_name IN (:...districts)', { districts: ['Nagpur'] })
+                    //.andWhere('ci.city_name = :cityName', { cityName: 'Nagpur' })
+                    .where('w.state_name = :stateName', { stateName })
+                    .andWhere('dist.district_name = :districtName', { districtName })
+                    // .andWhere('ci.city_name = :cityName', { cityName })
+                    .stream();
+
+                query = `
+                select c.country_name as admin0,s.state_name as admin1,d.district_name as admin2,ci.city_name as admin3,w.ward_name as admin4,w.object_id as object_id from ward as w
+                inner join city as ci on ci.id = w.city_id
+                inner join district as d on d.id = ci.district_id
+                inner join state as s on s.id = d.state_id
+                inner join country as c on c.id = s.country_id
+                where  w.id =`
+                break;
+
+
+        };
+
+
+        console.log(`stream Start for level => ${level}`)
+        let count = { totalCount: 0, forState: 0 }
+
+        await streamData.on('data', async (d: any) => {
+            let prop = typeof d?.properties == 'string' ? JSON.parse(d?.properties) : d?.properties;
+            const geometry = typeof d?.geometries == 'string' ? JSON.parse(d?.geometries) : d?.geometries;
+            prop.object_id = d?.object_id;
+            count.totalCount++
+            const features = {
+                "type": "Feature",
+                "properties": prop,
+                "geometry": geometry
+            }
+            // console.log('state=>',d)
+            const joinDataArr = await this.dataSource.query(query + d?.id);
+            const joinData = await Array.isArray(joinDataArr) && joinDataArr.length ? joinDataArr[0] : joinDataArr;
+            count.forState++;
+
+            await this.surveyAndStatsWardOutside(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
+            
+        })
+
+        streamData.on('error', (error) => {
+            console.error('Error in streamData:', error);
+        });
+
+        streamData.on('end', () => {
+            console.log('Stream Completed');
+        });
+
+    }
+
+
 
 
 
@@ -917,6 +1135,49 @@ export class MapService {
         })
     }
 
+
+
+
+    async surveyAndStatsVillageOutside(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id) {
+        try {
+            const churchList = [];
+            console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
+    
+            const client = await MongoClient.connect('mongodb://localhost:27017/');
+            const db = client.db('iif-local');
+    
+            const outsideChurchCollection = await db.collection('geocode_responses')
+                .find()
+                .toArray();
+                for (const church of outsideChurchCollection) {
+                    const lat = parseFloat(church.lat);
+                    const lon = parseFloat(church.lon);
+                    console.log(`outside lat and lon=======,${lat},${lon}`)
+                    const isInside = await this.isMarkerInsidePolygon({ lat, lon }, polygon);
+        
+                    if (isInside) {
+                        console.log(`Outside Boundary Location: ${church.display_name}, Latitude: ${lat}`);
+                        churchList.push(church);
+                        await db.collection('geocode_responses').deleteOne({ _id: church._id });
+                     }
+                }
+                await Promise.all([
+                    this.saveSurveyVillageOutside(features, churchList),
+                    //this.saveStatsWard(object_id, features, churchList),
+                ]);
+    
+           
+    
+            this.total_church_count += churchList.length;
+            console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
+    
+            client.close();
+            return { success: true, message: 'Survey and stats saved successfully.' };
+        } catch (error) {
+            console.log('Error in surveyAndStats:', error);
+            return Promise.reject('Error in surveyAndStats.');
+        }
+    }
 
 
     // async surveyAndStatsWard(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id?) {
@@ -1065,6 +1326,47 @@ export class MapService {
         }
     }
     
+    async surveyAndStatsWardOutside(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id) {
+        try {
+            const churchList = [];
+            console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
+    
+            const client = await MongoClient.connect('mongodb://localhost:27017/');
+            const db = client.db('iif-local');
+    
+            const outsideChurchCollection = await db.collection('geocode_responses')
+                .find()
+                .toArray();
+                for (const church of outsideChurchCollection) {
+                    const lat = parseFloat(church.lat);
+                    const lon = parseFloat(church.lon);
+                    console.log(`outside lat and lon=======,${lat},${lon}`)
+                    const isInside = await this.isMarkerInsidePolygon({ lat, lon }, polygon);
+        
+                    if (isInside) {
+                        console.log(`Outside Boundary Location: ${church.display_name}, Latitude: ${lat}`);
+                        churchList.push(church);
+                        await db.collection('geocode_responses').deleteOne({ _id: church._id });
+                     }
+                }
+                await Promise.all([
+                    this.saveSurveyWardOutside(features, churchList),
+                    //this.saveStatsWard(object_id, features, churchList),
+                ]);
+    
+           
+    
+            this.total_church_count += churchList.length;
+            console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
+    
+            client.close();
+            return { success: true, message: 'Survey and stats saved successfully.' };
+        } catch (error) {
+            console.log('Error in surveyAndStats:', error);
+            return Promise.reject('Error in surveyAndStats.');
+        }
+    }
+    
 
 
 
@@ -1151,6 +1453,27 @@ export class MapService {
     }
 
 
+    saveSurveyVillageOutside(data: any, churchList: any = []): Promise<any> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const apiPayload = await this.payloadVillageOutside(data, churchList);
+                console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
+                const url = `http://192.168.86.24:8080/api/encuesta/create`;
+                const headersRequest = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
+                };
+                const res = await lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
+
+                resolve(res)
+            } catch (err) {
+                console.log('Error in save survey =>', err)
+                reject(err)
+            }
+        })
+    }
+
+
     saveSurveyWard(features: any, churchList: any = []): Promise<any> {
         return new Promise(async (resolve, reject) => {
             try {
@@ -1172,6 +1495,27 @@ export class MapService {
         })
     }
 
+
+    saveSurveyWardOutside(features: any, churchList: any = []): Promise<any> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const apiPayload = await this.payloadWardOutside(features, churchList);
+                console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
+                const url = `http://192.168.86.24:8080/api/encuesta/create`;
+                //const url =`http://143.110.182.115:8080/api/encuesta/create`;
+                const headersRequest = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
+                };
+                const res = await lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
+
+                resolve(res)
+            } catch (err) {
+                console.log('Error in save survey =>', err)
+                reject(err)
+            }
+        })
+    }
 
 
     async payload(features, churchList: any = []) {
@@ -1232,6 +1576,64 @@ export class MapService {
 
 
 
+
+
+    async payloadVillageOutside(features, churchList: any = []) {
+        const geoJson = await JSON.stringify(structuredClone(features));
+        const strJson = jsonMinify(geoJson)
+
+        const payload: any = {},
+            admin0 = 'India',
+            admin1 = features?.properties.state,
+            admin2 = features?.properties.district,
+            admin3 = features?.properties.subdistrict,
+            admin4 = features.properties.name;
+
+        payload.survey = {
+
+            admin0: admin0,
+            admin1: admin1,
+            admin2: admin2,
+            admin3: admin3,
+            admin4: admin4,
+            isMasterSurvey: true,
+            noWork: Array.isArray(churchList) && churchList?.length ? false : true,
+            approvedDate: new Date(),
+            geojson: strJson,
+            approverName: 'Admin',
+            churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
+        }
+        payload.newChurches = structuredClone(churchList).map((cl) => {
+            let res = {
+                admin0: admin0,
+                admin1: admin1,
+                admin2: admin2,
+                admin3: admin3,
+                admin4: admin4,
+                "name": cl?.display_name,
+                "organization": cl?.organization?.organizationName,
+                "memberCount": cl?.memberCount,
+                "workerCount": 1,
+                "phone_number": cl?.phone_number,
+                "localLanguage": cl?.language,
+                "peopleGroups": cl?.people_group,
+                "email": cl?.email,
+                "location": {
+                    "lat": cl?.lat,
+                    "lng": cl?.lon,
+                },
+                "workerName": cl?.worker_name,
+                "address": cl?.address.toString(),
+                "remarks": ""
+            }
+            return { ...cl, ...res }
+        });
+        return payload
+    }
+
+
+
+
     async payloadWard(features, churchList: any = []) {
         const geoJson = await JSON.stringify(structuredClone(features));
         const strJson = jsonMinify(geoJson)
@@ -1254,6 +1656,7 @@ export class MapService {
             admin0: admin0,
             admin1: admin1,
             admin2: admin2,
+            
             admin3: admin3,
             admin4: admin4,
             isMasterSurvey: true,
@@ -1294,6 +1697,76 @@ export class MapService {
     }
 
 
+
+
+    async payloadWardOutside(features, churchList: any = []) {
+        const geoJson = await JSON.stringify(structuredClone(features));
+        const strJson = jsonMinify(geoJson)
+        let admin_4 = '';
+
+        if (features.properties && features.properties.name) {
+            admin_4 = features.properties.name.replace(/[-_ –]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .replace(/^\s+|\s+$/g, '')
+                .replace(/\b\w/g, (char) => char.toUpperCase());
+        }
+        const payload: any = {},
+            admin0 = 'India',
+            //admin0 = features?.properties.country,
+            admin1 = features?.properties.state,
+            admin2 = features?.properties.district,
+            // admin2 = 'Nagpur',
+            //admin3 = features?.properties.subdistrict,
+            admin3 = features.properties.cityname + ' City',
+            //admin4 = features.properties.name
+            admin4 = admin_4
+          //admin4 = features.properties.name.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());
+        
+        payload.survey = {
+            admin0: admin0,
+            admin1: admin1,
+            admin2: admin2,
+            
+            admin3: admin3,
+            admin4: admin4,
+            isMasterSurvey: true,
+            noWork: Array.isArray(churchList) && churchList?.length ? false : true,
+            approvedDate: new Date(),
+            geojson: strJson,
+            approverName: 'Admin',
+            churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
+            //churchCount: Array.isArray(churchList) ? churchList.length : 0 
+        }
+       
+        payload.newChurches = structuredClone(churchList).map((cl) => {
+            let res = {
+                admin0: admin0,
+                admin1: admin1,
+                admin2: admin2,
+                admin3: admin3,
+                admin4: admin4,
+                "name": cl?.display_name,
+                "organization": cl?.organization?.organizationName,
+                "memberCount": cl?.memberCount,
+                "workerCount": 1,
+                "phone_number": cl?.phone_number,
+                "localLanguage": cl?.language,
+                "peopleGroups": cl?.people_group,
+                "email": cl?.email,
+                "location": {
+                    // "lat": cl?.geometry?.location?.lat,
+                    // "lng": cl?.geometry?.location?.lng,
+                    "lat": cl?.lat,
+                    "lng": cl?.lon,
+                },
+                "workerName": cl?.worker_name,
+                "address": cl?.address.toString(),
+                "remarks": ""
+            }
+            return res
+        });
+        return payload
+    }
 
 
 
@@ -1402,8 +1875,10 @@ export class MapService {
     isMarkerInsidePolygon(marker, polygon): Promise<any> {
         const point = marker;
         polygon = polygon[0];
-        let x = point.lng,
+        //let x = point.lng,
+         let x = point.lon,
             y = point.lat;
+            
         let inside: any = false;
         for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
             let xi = polygon[i][0],

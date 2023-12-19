@@ -10,6 +10,7 @@ import { Chat } from './modules/chat/entity/chat.entity';
 import { MessageEntity } from './modules/message/message.entity';
 import { LoginMiddleware } from './middleware/login/login.middleware';
 import { Country, State, District, SubDistrict, Village, Ward, City } from './modules/user/map/entity/map.entity';
+import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -25,6 +26,12 @@ import { Country, State, District, SubDistrict, Village, Ward, City } from './mo
       // synchronize: true,
       
     }),
+//     MongooseModule.forRoot('mongodb://localhost:27017/your-mongodb-database-name', {
+//   // useNewUrlParser: true,
+//   // useUnifiedTopology: true,
+// }),
+    MongooseModule.forRoot('mongodb://localhost/iif-local'),
+
     RouterModule.register([
       {
         path: '',
@@ -45,4 +52,6 @@ export class AppModule implements NestModule {
       .exclude('/auth/login')
       .forRoutes('*'); // ('*') applies the middleware to all routes, or you can specify specific routes here.
   }
+
+  
 }
