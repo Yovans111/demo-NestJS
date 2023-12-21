@@ -44,7 +44,7 @@ export class MapService {
         private dataSource: DataSource,
         private http: HttpService,
         private httpService: HttpService
-        
+
     ) { }
     //Json Extraction
 
@@ -952,9 +952,9 @@ export class MapService {
 
 
     async getDataFromDbWardOutBoundary(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD' | 'wardId', stateName: string, districtName: string) {
-       
-       
-       
+
+
+
         const countryQuery = this.countryRepository.createQueryBuilder('c'),
             stateQuery = this.stateRepository.createQueryBuilder('s'),
             districtQuery = this.districtRepository.createQueryBuilder('d'),
@@ -1011,7 +1011,7 @@ export class MapService {
             count.forState++;
 
             await this.surveyAndStatsWardOutside(joinData.admin0, joinData.admin1, joinData.admin2, joinData.admin3, joinData.admin4, geometry.coordinates, features, joinData.object_id)
-            
+
         })
 
         streamData.on('error', (error) => {
@@ -1142,35 +1142,47 @@ export class MapService {
         try {
             const churchList = [];
             console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
-    
+
             const client = await MongoClient.connect('mongodb://localhost:27017/');
             const db = client.db('iif-local');
-    
+
             const outsideChurchCollection = await db.collection('geocode_responses')
                 .find()
                 .toArray();
-                for (const church of outsideChurchCollection) {
-                    const lat = parseFloat(church.lat);
-                    const lon = parseFloat(church.lon);
-                    console.log(`outside lat and lon=======,${lat},${lon}`)
+            for (const church of outsideChurchCollection) {
+                const lat = parseFloat(church.lat);
+                const lon = parseFloat(church.lon);
+                console.log(`outside lat and lon=======,${lat},${lon}`)
+
+
+                const encuestaChurch = await db.collection('encuesta_churches')
+                .find({
+                    "location.lat": lat,
+                    "location.lng": lon
+                })
+                .toArray();
+                if (encuestaChurch) {
+                    await db.collection('geocode_responses').deleteOne({ _id: church._id });
+                } else {
                     const isInside = await this.isMarkerInsidePolygon({ lat, lon }, polygon);
-        
+
                     if (isInside) {
                         console.log(`Outside Boundary Location: ${church.display_name}, Latitude: ${lat}`);
                         churchList.push(church);
                         await db.collection('geocode_responses').deleteOne({ _id: church._id });
-                     }
+                    }
                 }
-                await Promise.all([
-                    this.saveSurveyVillageOutside(features, churchList),
-                    //this.saveStatsWard(object_id, features, churchList),
-                ]);
-    
-           
-    
+            }
+            await Promise.all([
+                this.saveSurveyVillageOutside(features, churchList),
+                //this.saveStatsWard(object_id, features, churchList),
+            ]);
+
+
+
             this.total_church_count += churchList.length;
             console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
-    
+
             client.close();
             return { success: true, message: 'Survey and stats saved successfully.' };
         } catch (error) {
@@ -1290,34 +1302,34 @@ export class MapService {
         try {
             const churchList = [];
             console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
-    
+
             const client = await MongoClient.connect('mongodb://localhost:27017/');
             const db = client.db('iif-local');
-    
+
             const churchCollection = await db.collection('google_state_churches')
                 .find({ admin2: admin2 })
                 .toArray();
-    
+
             const uniqueChurches = await this.removeDuplicate(churchCollection);
-    
+
             for (const church of uniqueChurches) {
                 const churchLocation = church.geometry?.location;
                 const isInside = await this.isMarkerInsidePolygon(churchLocation, polygon);
-    
+
                 if (isInside) {
                     churchList.push(church);
                 }
             }
-    
+
             // Save survey and stats concurrently
             await Promise.all([
                 this.saveSurveyWard(features, churchList),
                 this.saveStatsWard(object_id, features, churchList)
             ]);
-    
+
             this.total_church_count += churchList.length;
             console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
-    
+
             client.close();
             return { success: true, message: 'Survey and stats saved successfully.' };
         } catch (error) {
@@ -1325,40 +1337,51 @@ export class MapService {
             return Promise.reject('Error in surveyAndStats.');
         }
     }
-    
+
     async surveyAndStatsWardOutside(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id) {
         try {
             const churchList = [];
             console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
-    
+
             const client = await MongoClient.connect('mongodb://localhost:27017/');
             const db = client.db('iif-local');
-    
+
             const outsideChurchCollection = await db.collection('geocode_responses')
                 .find()
                 .toArray();
-                for (const church of outsideChurchCollection) {
-                    const lat = parseFloat(church.lat);
-                    const lon = parseFloat(church.lon);
-                    console.log(`outside lat and lon=======,${lat},${lon}`)
+            for (const church of outsideChurchCollection) {
+                const lat = parseFloat(church.lat);
+                const lon = parseFloat(church.lon);
+                console.log(`outside lat and lon=======,${lat},${lon}`)
+                const encuestaChurch = await db.collection('encuesta_churches')
+                .find({
+                    "location.lat": lat,
+                    "location.lng": lon
+                })
+                .toArray();
+                
+            if (encuestaChurch ) {
+               await db.collection('geocode_responses').deleteOne({ _id: church._id });
+            } else {
                     const isInside = await this.isMarkerInsidePolygon({ lat, lon }, polygon);
-        
+
                     if (isInside) {
                         console.log(`Outside Boundary Location: ${church.display_name}, Latitude: ${lat}`);
                         churchList.push(church);
                         await db.collection('geocode_responses').deleteOne({ _id: church._id });
-                     }
+                    }
                 }
-                await Promise.all([
-                    this.saveSurveyWardOutside(features, churchList),
-                    //this.saveStatsWard(object_id, features, churchList),
-                ]);
-    
-           
-    
+            }
+            await Promise.all([
+                this.saveSurveyWardOutside(features, churchList),
+                //this.saveStatsWard(object_id, features, churchList),
+            ]);
+
+
+
             this.total_church_count += churchList.length;
             console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
-    
+
             client.close();
             return { success: true, message: 'Survey and stats saved successfully.' };
         } catch (error) {
@@ -1366,7 +1389,7 @@ export class MapService {
             return Promise.reject('Error in surveyAndStats.');
         }
     }
-    
+
 
 
 
@@ -1457,8 +1480,8 @@ export class MapService {
         return new Promise(async (resolve, reject) => {
             try {
                 const apiPayload = await this.payloadVillageOutside(data, churchList);
-                console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
-                const url = `http://192.168.86.24:8080/api/encuesta/create`;
+                // console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
+                const url = `http://192.168.86.24:8080/api/encuesta/create/outBoundary`;
                 const headersRequest = {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
@@ -1500,8 +1523,8 @@ export class MapService {
         return new Promise(async (resolve, reject) => {
             try {
                 const apiPayload = await this.payloadWardOutside(features, churchList);
-                console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
-                const url = `http://192.168.86.24:8080/api/encuesta/create`;
+                // console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
+                const url = `http://192.168.86.24:8080/api/encuesta/create/outBoundary`;
                 //const url =`http://143.110.182.115:8080/api/encuesta/create`;
                 const headersRequest = {
                     'Content-Type': 'application/json',
@@ -1589,20 +1612,20 @@ export class MapService {
             admin3 = features?.properties.subdistrict,
             admin4 = features.properties.name;
 
-        payload.survey = {
+        // payload.survey = {
 
-            admin0: admin0,
-            admin1: admin1,
-            admin2: admin2,
-            admin3: admin3,
-            admin4: admin4,
-            isMasterSurvey: true,
-            noWork: Array.isArray(churchList) && churchList?.length ? false : true,
-            approvedDate: new Date(),
-            geojson: strJson,
-            approverName: 'Admin',
-            churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
-        }
+        //     admin0: admin0,
+        //     admin1: admin1,
+        //     admin2: admin2,
+        //     admin3: admin3,
+        //     admin4: admin4,
+        //     isMasterSurvey: true,
+        //     noWork: Array.isArray(churchList) && churchList?.length ? false : true,
+        //     approvedDate: new Date(),
+        //     geojson: strJson,
+        //     approverName: 'Admin',
+        //     churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
+        // }
         payload.newChurches = structuredClone(churchList).map((cl) => {
             let res = {
                 admin0: admin0,
@@ -1656,7 +1679,7 @@ export class MapService {
             admin0: admin0,
             admin1: admin1,
             admin2: admin2,
-            
+
             admin3: admin3,
             admin4: admin4,
             isMasterSurvey: true,
@@ -1667,7 +1690,7 @@ export class MapService {
             churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
             //churchCount: Array.isArray(churchList) ? churchList.length : 0 
         }
-       
+
         payload.newChurches = structuredClone(churchList).map((cl) => {
             let res = {
                 admin0: admin0,
@@ -1720,24 +1743,24 @@ export class MapService {
             admin3 = features.properties.cityname + ' City',
             //admin4 = features.properties.name
             admin4 = admin_4
-          //admin4 = features.properties.name.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());
-        
-        payload.survey = {
-            admin0: admin0,
-            admin1: admin1,
-            admin2: admin2,
-            
-            admin3: admin3,
-            admin4: admin4,
-            isMasterSurvey: true,
-            noWork: Array.isArray(churchList) && churchList?.length ? false : true,
-            approvedDate: new Date(),
-            geojson: strJson,
-            approverName: 'Admin',
-            churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
-            //churchCount: Array.isArray(churchList) ? churchList.length : 0 
-        }
-       
+        //admin4 = features.properties.name.replace(/[-_ –]/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\b\w/g, (char) => char.toUpperCase());
+
+        // payload.survey = {
+        //     admin0: admin0,
+        //     admin1: admin1,
+        //     admin2: admin2,
+
+        //     admin3: admin3,
+        //     admin4: admin4,
+        //     isMasterSurvey: true,
+        //     noWork: Array.isArray(churchList) && churchList?.length ? false : true,
+        //     approvedDate: new Date(),
+        //     geojson: strJson,
+        //     approverName: 'Admin',
+        //     churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
+        //     //churchCount: Array.isArray(churchList) ? churchList.length : 0 
+        // }
+
         payload.newChurches = structuredClone(churchList).map((cl) => {
             let res = {
                 admin0: admin0,
@@ -1760,12 +1783,24 @@ export class MapService {
                     "lng": cl?.lon,
                 },
                 "workerName": cl?.worker_name,
-                "address": cl?.address.toString(),
+                "address": cl?.address?.village,
+                // "address": {
+                //     "village": cl?.address?.village,
+                //     "county": cl?.address?.county,
+                //     "stateDistrict": cl?.address?.state_district,
+                //     "state": cl?.address?.state,
+                //     "country": cl?.address?.country,
+                // },
                 "remarks": ""
             }
             return res
         });
-        return payload
+        // payload.survey = payload.survey || {};
+
+
+        // payload.survey.churchCount = (payload.survey.churchCount || 0) + payload.newChurches.length;
+
+        return payload;
     }
 
 
@@ -1830,37 +1865,37 @@ export class MapService {
 
     async saveStatsWard(object_id, feature, churchList) {
         try {
-          const payload = await this.statsPayload(feature, churchList);
-          const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/1`;
-    
-          // Retry logic (customizable)
-          const maxRetries = 3;
-          let attempt = 0;
-          let res;
-    
-          do {
-            try {
-              attempt++;
-              res = await this.httpService.post(url, payload, { timeout: 18000000 }).toPromise();
-              console.log('Save Stats =>', res.data);
-            } catch (error) {
-              console.log(`Error in save stats (attempt ${attempt} of ${maxRetries}):`, error.message || error);
-    
-              // Break the loop if max retries reached
-              if (attempt >= maxRetries) {
-                throw error;
-              }
-            }
-          } while (!res && attempt < maxRetries);
-    
-          return res;
+            const payload = await this.statsPayload(feature, churchList);
+            const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/1`;
+
+            // Retry logic (customizable)
+            const maxRetries = 3;
+            let attempt = 0;
+            let res;
+
+            do {
+                try {
+                    attempt++;
+                    res = await this.httpService.post(url, payload, { timeout: 18000000 }).toPromise();
+                    console.log('Save Stats =>', res.data);
+                } catch (error) {
+                    console.log(`Error in save stats (attempt ${attempt} of ${maxRetries}):`, error.message || error);
+
+
+                    if (attempt >= maxRetries) {
+                        throw error;
+                    }
+                }
+            } while (!res && attempt < maxRetries);
+
+            return res;
         } catch (error) {
-          console.log('Error in save stats =>', error.message || error);
-          throw error;
+            console.log('Error in save stats =>', error.message || error);
+            throw error;
         }
-      }
-   
-    
+    }
+
+
 
     statsPayload(feature, churchCount) {
         let payload: any = {};
@@ -1876,9 +1911,9 @@ export class MapService {
         const point = marker;
         polygon = polygon[0];
         //let x = point.lng,
-         let x = point.lon,
+        let x = point.lon,
             y = point.lat;
-            
+
         let inside: any = false;
         for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
             let xi = polygon[i][0],
