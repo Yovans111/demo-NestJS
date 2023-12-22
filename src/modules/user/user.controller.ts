@@ -150,9 +150,9 @@ export class UserController {
      //const districtName = geocodeData.address.state_district;
       const districtName = geocodeData.address.county;
       const result1 = await this.mapService.getDataFromDbWardOutBoundary('WARD', stateName, districtName);
-      const result2 = await this.mapService.getDataFromDbVillageOutBoundary('VILLAGE', stateName, districtName);
-      //return result1;
-     return {result1,result2};
+      //const result2 = await this.mapService.getDataFromDbVillageOutBoundary('VILLAGE', stateName, districtName);
+      return result1;
+     //return {result1,result2};
     } catch (error) {
       console.error('Error in surveyStatsOutBoundary:', error);
       throw new Error('Error in surveyStatsOutBoundary.');

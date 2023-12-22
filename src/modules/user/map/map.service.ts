@@ -1156,11 +1156,11 @@ export class MapService {
 
 
                 const encuestaChurch = await db.collection('encuesta_churches')
-                .find({
-                    "location.lat": lat,
-                    "location.lng": lon
-                })
-                .toArray();
+                    .find({
+                        "location.lat": lat,
+                        "location.lng": lon
+                    })
+                    .toArray();
                 if (encuestaChurch) {
                     await db.collection('geocode_responses').deleteOne({ _id: church._id });
                 } else {
@@ -1338,33 +1338,37 @@ export class MapService {
         }
     }
 
+
+
+
     async surveyAndStatsWardOutside(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id) {
         try {
             const churchList = [];
             console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
-
+    
             const client = await MongoClient.connect('mongodb://localhost:27017/');
             const db = client.db('iif-local');
-
-            const outsideChurchCollection = await db.collection('geocode_responses')
-                .find()
-                .toArray();
+    
+            const outsideChurchCollection = await db.collection('geocode_responses').find().toArray();
+    
             for (const church of outsideChurchCollection) {
                 const lat = parseFloat(church.lat);
                 const lon = parseFloat(church.lon);
-                console.log(`outside lat and lon=======,${lat},${lon}`)
-                const encuestaChurch = await db.collection('encuesta_churches')
-                .find({
+                console.log(`outside lat and lon=======,${lat},${lon}`);
+    
+                const encuestaChurch = await db.collection('encuesta_churches').findOne({
                     "location.lat": lat,
                     "location.lng": lon
-                })
-                .toArray();
-                
-            if (encuestaChurch ) {
-               await db.collection('geocode_responses').deleteOne({ _id: church._id });
-            } else {
+                });
+                console.log('Encuesta Church:', encuestaChurch);
+   
+                if (encuestaChurch) {
+                    //console.log(`Encuesta Churches found for location (lat: ${encuestaChurch.location.lat}, lng: ${encuestaChurch.location.lng}):`, encuestaChurch);
+                    console.log(`Geocode Response Location: Latitude ${lat}, Longitude ${lon}`);
+                    await db.collection('geocode_responses').deleteOne({ _id: church._id });
+                } else {
                     const isInside = await this.isMarkerInsidePolygon({ lat, lon }, polygon);
-
+    
                     if (isInside) {
                         console.log(`Outside Boundary Location: ${church.display_name}, Latitude: ${lat}`);
                         churchList.push(church);
@@ -1372,24 +1376,23 @@ export class MapService {
                     }
                 }
             }
+    
             await Promise.all([
                 this.saveSurveyWardOutside(features, churchList),
-                //this.saveStatsWard(object_id, features, churchList),
+                // this.saveStatsWard(object_id, features, churchList),
             ]);
-
-
-
+    
             this.total_church_count += churchList.length;
             console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
-
-            client.close();
+    
+            await client.close();
             return { success: true, message: 'Survey and stats saved successfully.' };
         } catch (error) {
             console.log('Error in surveyAndStats:', error);
             return Promise.reject('Error in surveyAndStats.');
         }
     }
-
+    
 
 
 
