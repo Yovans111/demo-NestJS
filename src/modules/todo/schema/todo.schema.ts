@@ -22,10 +22,13 @@ export class TodoList {
     description: string;
 
     @Prop()
-    status: number;
+    status: number; //1 => Incomplete , 2=> Inprogress ,3 =>To-do , 4=>Completed , 5=> Canceled  
 
     @Prop({ default: () => 0 })
     createdBy: number;
+
+    @Prop({ default: () => 0 })
+    isFavorite: number; //0 => false 1 => true
 
     @Prop({ required: true, default: () => new Date() })
     createdAt: Date;

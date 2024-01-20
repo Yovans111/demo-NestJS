@@ -9,13 +9,13 @@ export class TodoController {
   constructor(private readonly todoService: TodoService) { }
 
   @Post('save')
-  create(@Body() data: any) {
-    return this.todoService.create(data);
+  create(@Body() data: any, @Res() res: Response) {
+    return this.todoService.create(data, res);
   }
 
-  @Get()
-  findAll() {
-    return this.todoService.findAll();
+  @Get('getlist')
+  findAll(@Res() res: Response) {
+    return this.todoService.findAll(res);
   }
 
   @Get(':id')
