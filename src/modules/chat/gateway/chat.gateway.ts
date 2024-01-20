@@ -12,7 +12,7 @@ import { SocketGuard } from 'src/guards/socket/socket.guard';
   cors: {
     origin: true,
     credentials: true,
-  }, path: "/my-chat/"
+  }
 })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
 
@@ -35,8 +35,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   // @UseGuards(SocketGuard)
   @SubscribeMessage('sendMessage')
   async handleSendMessage(client: Socket, payload: Chat): Promise<void> {
-    // console.log('received',client.id,payload);
-    this.azureService.createChatThread();
+    console.log('received',client.id,payload);
+    // this.azureService.createChatThread();
     // this.azureService.createChatThread('Demo')
     // await this.chatService.createMessage(payload);
     this.server.emit('recMessage', payload);

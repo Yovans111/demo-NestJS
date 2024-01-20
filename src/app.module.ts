@@ -10,6 +10,7 @@ import { Chat } from './modules/chat/entity/chat.entity';
 import { MessageEntity } from './modules/message/message.entity';
 import { LoginMiddleware } from './middleware/login/login.middleware';
 import { Country, State, District, SubDistrict, Village, City, Ward } from './modules/user/map/entity/map.entity';
+import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -24,6 +25,7 @@ import { Country, State, District, SubDistrict, Village, City, Ward } from './mo
       connectTimeout: 180000, //3 min
       // synchronize: true,
     }),
+    MongooseModule.forRoot('mongodb://127.0.0.1:27017/', { dbName: 'todoDb' }),
     RouterModule.register([
       {
         path: '',
@@ -45,3 +47,11 @@ export class AppModule implements NestModule {
       .forRoutes('*'); // ('*') applies the middleware to all routes, or you can specify specific routes here.
   }
 }
+
+
+/* Dev DB Config */
+// host: '162.241.224.20',
+// port: 3306,
+// username: 'mhsgloba_itoi_admin',
+// password: '0mx&4YU&6-lx',
+// database: 'mhsgloba_iif_dev', 

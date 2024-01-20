@@ -380,7 +380,7 @@ export class MapService {
             villageQuery = this.villageRepository.createQueryBuilder('village'),
             wardQuery = this.wardRepository.createQueryBuilder('ward'),
             cityQuery = this.cityRepository.createQueryBuilder('city');
-        let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
+        let name = 'ward_no_' + data?.properties['sourcewardcode'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
             cityname = data?.properties['cityname'], res: any;
         // console.log('name=>', name, 'state =>', data?.properties?.['state']);
         switch (level) {
@@ -424,16 +424,16 @@ export class MapService {
                 break;
 
             case 'WARD':
-                if (data?.properties['state'] == 'Maharashtra') {
-                    let cityData = await cityQuery.where(`LOWER(city.city_name) LIKE LOWER(:value)`, { value: data?.properties['cityname'] }).getOne();
-                    // console.log(`cityId => ${cityData?.id} | city => ${name}`)
-                    let city_id = cityData?.id
-                    let ward_object_id = this.generateObjectId(cityData?.object_id, 3);
-                    this.countForEach.count++;
-                    properties = this.setProperty(properties, ward_object_id)
-                    console.log(`Before Insert ${name} | city => ${data?.properties['cityname']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
-                    res = await wardQuery.insert().into(Ward).values({ ward_name: name, geometries, properties, city_id, object_id: ward_object_id, state_name: data?.properties['state'] }).execute()
-                }
+                // if (data?.properties['state'] == 'Maharashtra') {
+                let cityData = await cityQuery.where(`LOWER(city.city_name) LIKE LOWER(:value)`, { value: data?.properties['cityname'] }).getOne();
+                // console.log(`cityId => ${cityData?.id} | city => ${name}`)
+                let city_id = cityData?.id
+                let ward_object_id = this.generateObjectId(cityData?.object_id, 3);
+                this.countForEach.count++;
+                properties = this.setProperty(properties, ward_object_id)
+                console.log(`Before Insert ${name} | city => ${data?.properties['cityname']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
+                res = await wardQuery.insert().into(Ward).values({ ward_name: name, geometries, properties, city_id, object_id: ward_object_id, state_name: data?.properties['state'] }).execute()
+                // }
                 break;
 
             case 'VIL':
@@ -464,15 +464,13 @@ export class MapService {
                 break;
         }
         if (res)
-            console.log(res)
+            console.log('Data Save Succesfully for ', this.countForEach.count)
     }
 
     async saveDataByFolder() {
-        let path = '../../../../../../mapData/ward',
-            // let path = 'src/assets/json/subdistrict',
-            fileName = await this.readFilesFromFolder(path)
-        // fileName = ['Uttar Pradesh_village.json']
-        // const count: { state: string, count: number } = { state: '', count: 0 }
+        let path = '../../../../../../mapData/ward/',
+            // fileName = await this.readFilesFromFolder(path) --> save By Folder
+            fileName = ['Chinchwad_Ward_Boundaries_2022 .json']
         let count = 0
         console.log('fileNames =>', fileName);
         const d = new Date()
@@ -691,7 +689,7 @@ export class MapService {
 
         switch (level) {
             case 'COUNTRY':
-                select = ['c.id as id','c.properties as properties', 'c.geometries as geometries','c.object_id as object_id']
+                select = ['c.id as id', 'c.properties as properties', 'c.geometries as geometries', 'c.object_id as object_id']
                 streamData = await countryQuery.select(select).stream();
                 query = 'SELECT  c.country_name from country as c where c.id ='
                 break;
@@ -740,7 +738,7 @@ export class MapService {
                 streamData = await wardQuery.stream();
                 break;
         };
-        
+
         console.log(`stream Start for level => ${level}`)
         let count = { totalCount: 0, forState: 0 }
         await streamData.on('data', async (d: any) => {

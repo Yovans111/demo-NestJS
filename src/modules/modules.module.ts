@@ -6,6 +6,7 @@ import { User } from './user/entity/user.entity';
 import { UserModule } from './user/user.module';
 import { Chat } from './chat/entity/chat.entity';
 import { MessageModule } from './message/message.module';
+import { TodoModule } from './todo/todo.module';
 
 const Route: Routes = [
     {
@@ -20,6 +21,10 @@ const Route: Routes = [
         path: 'message',
         module: MessageModule
     },
+    {
+        path: 'todo',
+        module: TodoModule
+    },
 ]
 @Module({
     imports: [
@@ -28,6 +33,7 @@ const Route: Routes = [
         MessageModule,
         TypeOrmModule.forFeature([User, Chat]),
         RouterModule.register(Route),
+        TodoModule,
     ],
 })
 export class ModulesModule { }
