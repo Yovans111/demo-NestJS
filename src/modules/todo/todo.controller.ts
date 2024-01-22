@@ -18,9 +18,9 @@ export class TodoController {
     return this.todoService.findAll(res);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.todoService.findOne(+id);
+  @Post('updateData')
+  updateData(@Body() req: any, @Res() res: Response) {
+    return this.todoService.updateData(res, req);
   }
 
   @Patch(':id')

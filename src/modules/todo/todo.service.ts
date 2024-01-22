@@ -28,9 +28,22 @@ export class TodoService {
 
   }
 
-  async findAll(res) {
+  async findAll(res: Response) {
     const result = await this.todoListModel.find({}).sort({ 'createdAt': -1 })
     response(res, result, 'success');
+  }
+
+  async updateData(res: Response, req: any) {
+    if (!req?._id) {
+      throwError('Id is Required')
+    }
+    const id = req._id;
+    try {
+      const result = await this.todoListModel.findByIdAndUpdate(id, req, { new: true });
+      response(res, result, 'Task Update Successfully');
+    } catch (error) {
+      throwError(error)
+    }
   }
 
   findOne(id: number) {
@@ -47,7 +60,6 @@ export class TodoService {
 
   async generateOrderId() {
     const last = await this.todoListModel.findOne({}, {}, { sort: { 'taskId': -1 } });
-
     let counter: any = 1;
     if (last && last.taskId) {
       const lastNumber = parseInt(last.taskId.slice(3), 10);

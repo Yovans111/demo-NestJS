@@ -30,6 +30,12 @@ export class TodoList {
     @Prop({ default: () => 0 })
     isFavorite: number; //0 => false 1 => true
 
+    @Prop({ default: () => 0 })
+    isComplete: number; //0 => false 1 => true
+
+    @Prop({ required: false, default: () => null })
+    completedAt: Date;
+
     @Prop({ required: true, default: () => new Date() })
     createdAt: Date;
 }
