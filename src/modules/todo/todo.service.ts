@@ -4,7 +4,7 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { TodoList, TodoListDocument } from './schema/todo.schema';
 import { Model } from 'mongoose';
-import { response, throwError } from 'src/helper/utilityHelper';
+import { getWhereCond, response, throwError } from 'src/helper/utilityHelper';
 import { Response } from 'express';
 
 @Injectable()
@@ -28,9 +28,22 @@ export class TodoService {
 
   }
 
-  async findAll(res: Response) {
-    const result = await this.todoListModel.find({}).sort({ 'createdAt': -1 })
-    response(res, result, 'success');
+  async findAll(res: Response, query: any) {
+    // const result = await this.todoListModel.find({}).sort({ 'createdAt': -1 })
+    try {
+      console.log('query------', typeof query.whereCond);
+      const cond = getWhereCond(query?.whereCond || []),
+        limit = query?.limit,
+        skip = ((query?.page || 1) - 1) * limit || 0,
+        result = await this.todoListModel.find(cond)
+          .skip(skip)
+          .limit(limit)
+          .sort({ 'createdAt': -1 });
+      console.log('cond------', cond);
+      response(res, result, 'success');
+    } catch (error) {
+      throwError(error)
+    }
   }
 
   async updateData(res: Response, req: any) {

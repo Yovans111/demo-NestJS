@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Res, Query } from '@nestjs/common';
 import { TodoService } from './todo.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { Response } from 'express';
+import { Appconstant } from 'src/layout/auth/constant';
+import { createPagination } from 'src/helper/utilityHelper';
 
 @Controller()
 export class TodoController {
@@ -14,8 +16,9 @@ export class TodoController {
   }
 
   @Get('getlist')
-  findAll(@Res() res: Response) {
-    return this.todoService.findAll(res);
+  findAll(@Res() res: Response, @Query('page') page: number, @Query('limit') limit: number = Appconstant.LIST_LIMIT, @Query('whereCond') whereCond: string) {
+    const query = createPagination(limit, page, whereCond);
+    return this.todoService.findAll(res, query);
   }
 
   @Post('updateData')

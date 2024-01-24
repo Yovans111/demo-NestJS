@@ -22,3 +22,7 @@ export const azureConfig = {
   connectionString: "endpoint=https://az-comm-svcs-4-apis.communication.azure.com/;accesskey=dX1zBVg8ezXQ2m5fzzLt7xWKmzs5HGOgR3etkIpJ9UZjQz58VJAEcepUaUwxyNEWYdheGMEPMRBql4PfqD4roA==",
   endpoint: 'https://az-comm-svcs-4-apis.communication.azure.com/',
 };
+
+export class Appconstant {
+  public static LIST_LIMIT = 10
+}
