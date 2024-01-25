@@ -30,17 +30,17 @@ export class TodoService {
 
   async findAll(res: Response, query: any) {
     // const result = await this.todoListModel.find({}).sort({ 'createdAt': -1 })
+    const searchColumn = ['title', 'taskId'];
     try {
-      console.log('query------', typeof query.whereCond);
-      const cond = getWhereCond(query?.whereCond || []),
+      const cond = getWhereCond(query?.whereCond || [], searchColumn),
         limit = query?.limit,
         skip = ((query?.page || 1) - 1) * limit || 0,
-        result = await this.todoListModel.find(cond)
+        data = await this.todoListModel.find(cond)
           .skip(skip)
           .limit(limit)
           .sort({ 'createdAt': -1 });
-      console.log('cond------', cond);
-      response(res, result, 'success');
+      const totalRecords = await this.todoListModel.countDocuments(cond);
+      response(res, { data, totalRecords }, 'success');
     } catch (error) {
       throwError(error)
     }

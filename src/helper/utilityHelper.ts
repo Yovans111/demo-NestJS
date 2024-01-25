@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus } from "@nestjs/common"
 import { Response } from "express"
 import { RESPONSE_CODE } from "src/layout/auth/constant"
+import { whereCond } from "./response"
 
 export const throwError = (message: string, statusCode: any = RESPONSE_CODE.BAD_REQUEST) => {
     throw new HttpException(message, statusCode)
@@ -16,14 +17,21 @@ export function response(res: Response, data = {}, message = '', statusCode = Ht
     res.end()
 }
 
-export function getWhereCond(wh: any[]) {
+export function getWhereCond(wh: whereCond[], searchKey: string[]) {
     let res: any = {}
     if (Array.isArray(wh) && wh.length) {
-        wh.forEach((a) => {
-            res = {
-                ...res, ...{ [a.colName]: { $regex: new RegExp(a?.value || '', 'i') } }
+        let $and: any[] = [], $or: any[] = [];
+        wh.forEach((w: whereCond) => {
+            if (w.colName == 'searchTerm') {
+                searchKey.forEach((s) => {
+                    $or.push({ [s]: { $regex: new RegExp(w?.value || '', 'i') } })
+                })
+            } else {
+                $and.push({ [w.colName]: w.value });
             }
         })
+        $or.length ? $and.push({ $or }) : null;
+        res = { $and }
     }
     return res;
 }
