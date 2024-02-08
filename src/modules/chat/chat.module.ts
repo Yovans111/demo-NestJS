@@ -9,7 +9,7 @@ import { ChatService } from './service/chat.service';
 @Module({
     imports: [TypeOrmModule.forFeature([Chat])],
     controllers: [ChatController],
-    providers: [ChatService, ChatGateway,AzurecommunicationService],
-    exports:[ChatGateway]
+    providers: [ChatService, ChatGateway, AzurecommunicationService],
+    exports: [ChatGateway]
 })
 export class ChatModule { }

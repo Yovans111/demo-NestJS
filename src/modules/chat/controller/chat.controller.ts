@@ -5,11 +5,12 @@ import { Room } from '../dto/chat/chat.interface';
 import { Response } from 'express';
 import { createReadStream, statSync } from 'fs';
 import { join } from 'path';
+import { AzurecommunicationService } from '../service/azurecommunication/azurecommunication.service';
 
 @ApiTags('Chat')
 @Controller()
 export class ChatController {
-    constructor(private chatService: ChatService) { }
+    constructor(private chatService: ChatService, private azureService: AzurecommunicationService) { }
 
     @Get('get')
     async Chat(@Res() res) {
@@ -47,5 +48,11 @@ export class ChatController {
         });
         // return new StreamableFile(fileData)
         return fileData.pipe(res)
+    }
+
+    //azure chat
+    @Get('initAzure')
+    async initAzure() {
+        return await this.azureService.chatInitial();
     }
 }

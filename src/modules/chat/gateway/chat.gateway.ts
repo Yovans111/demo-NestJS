@@ -17,7 +17,7 @@ import { SocketGuard } from 'src/guards/socket/socket.guard';
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
 
   private logger = new Logger('gateway')
-  constructor(private chatService: ChatService,private azureService:AzurecommunicationService) { }
+  constructor(private chatService: ChatService, private azureService: AzurecommunicationService) { }
 
   @WebSocketServer() server: Server | any
 
@@ -35,7 +35,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   // @UseGuards(SocketGuard)
   @SubscribeMessage('sendMessage')
   async handleSendMessage(client: Socket, payload: Chat): Promise<void> {
-    console.log('received',client.id,payload);
+    console.log('received', client.id, payload);
     // this.azureService.createChatThread();
     // this.azureService.createChatThread('Demo')
     // await this.chatService.createMessage(payload);
@@ -44,7 +44,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
 
   //For Room Chat
-  
+
   @SubscribeMessage('join_room')
   async handleSetClientDataEvent(client: Socket, payload: { roomName: string, user: User_chat }) {
     if (payload?.user.socketId) {
