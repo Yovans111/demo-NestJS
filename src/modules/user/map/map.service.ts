@@ -48,10 +48,14 @@ export class MapService {
         return writeFileSync(`${folderPath}/${fileName}.json`, jsonString);
     }
 
-    async getJsonVillageData(inputfilePath: string, outFilePath: string, config: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY' | 'CITY' | 'WARD' = 'VIL') {
+    async parseGeojson(inputfilePath: string, outFilePath: string, config: any, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' | 'COUNTRY' | 'CITY' | 'WARD' = 'VIL') {
         let jsonData: any = {}, finalJson: any = {};
-        jsonData = await fsEx.readJson(inputfilePath); let outputFolderPath = outFilePath;
-        jsonData?.features.forEach((a: any) => {
+        // jsonData = await fsEx.readJson(inputfilePath);
+        let outputFolderPath = outFilePath;
+        const readStream = fs.createReadStream(inputfilePath, 'utf8');
+        const parse = readStream.pipe(geojsonStream.parse())
+        // jsonData?.features.forEach((a: any) => {
+        parse.on('data', (a) => {
             let distName: string = this.replaceSpeChar(a?.properties?.[config?.distName]),
                 stateName: string = this.replaceSpeChar(a?.properties?.[config?.stateName]),
                 subDistName: string = this.replaceSpeChar(a?.properties?.[config?.subDistName]),
@@ -109,6 +113,9 @@ export class MapService {
             const villageInvPath = this.createFolderForJson(`${subdistPath}`, villageName);
             this.writeJsonFile(`${villageInvPath}`, villageName, finalJson);
             console.log(`File for village ${villageName} in ${stateName}`);
+        })
+        parse.on('end', () => {
+            console.log('read completed')
         })
     }
 
@@ -168,9 +175,9 @@ export class MapService {
         const fs = require('fs');
         const filePath = inpath; // Replace with the actual file path
         const readStream = fs.createReadStream(filePath, 'utf8');
+        const parse = readStream.pipe(geojsonStream.parse())
         let features = [],
             states = ['Andaman and Nicobar Islands']//'Lakshadweep', 'The Dadra And Nagar Haveli And Daman And Diu', 'Chhattisgarh', 'Andaman and Nicobar Islands', 'West Bengal', 'Haryana', 'Himachal Pradesh', 'Uttarakhand', 'Meghalaya', 'Sikkim', 'Mizoram', 'Nagaland', 'Arunachal Pradesh', 'Punjab', 'Puducherry', 'Jammu And Kashmir', 'Ladakh'
-        const parse = readStream.pipe(geojsonStream.parse())
         const stateFeatureMap = new Map();
         console.log(`Features for state started`);
         parse.on('data', (feature) => {
@@ -243,7 +250,7 @@ export class MapService {
     async readJsonDataByfolder(inpath, outpath, config, level: 'DIST' | 'SUBDIST' | 'VIL' | 'STATE' = 'VIL') {
         let filesNames = await this.readFilesFromFolder(inpath)
         await filesNames.forEach(async (fN: any, i, arr) => {
-            this.getJsonVillageData(`${inpath}/${fN}`, outpath, config, level)
+            this.parseGeojson(`${inpath}/${fN}`, outpath, config, level)
         })
     }
 
@@ -674,7 +681,7 @@ export class MapService {
     }
 
 
-    /* For create India upto village folder using Db  */
+    /* For Parsing Geojson upto villgae level using Db  */
 
 
     async getDataFromDb(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'VILLAGE' | 'CITY' | 'WARD') {
