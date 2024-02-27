@@ -20,7 +20,7 @@ import { MongooseModule } from '@nestjs/mongoose';
       port: 3306,
       username: 'root',
       password: 'admin@123#2023',
-      database: 'mapData', //change to demo for other database
+      database: 'prod_mapdata', //change to demo for other database
       entities: [User, Chat, MessageEntity, Country, State, District, SubDistrict, Village, City, Ward],
       connectTimeout: 180000, //3 min
       // synchronize: true,

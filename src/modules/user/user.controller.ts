@@ -44,8 +44,8 @@ export class UserController {
         const villconfig = { stateName: 'stname', distName: 'dtname', subDistName: 'SUB_DIST_CODE', villageName: 'NAME' },
             otherConfig = { countryName: 'Country', stateName: 'State', distName: 'District', subDistName: 'Subdistrict', villageName: 'Name' }, //villageName: 'name', wardName: 'sourcewardname', cityName: 'townname', wardNo: 'sourcewardcode' },
             config = otherConfig,
-            inpath = '../../../../../../mapData/maharastrageojson/maharashtra_villages.geojson', outPath = '../../../../../../mapData/maharastra-json-parse'
-        return this.mapService.parseGeojson(inpath, outPath, config, 'VIL')
+            inpath = '../../../../../../mapData/maharastrageojson/maharashtra_district.geojson', outPath = '../../../../../../mapData/maharastra-json-parse'
+        return this.mapService.parseGeojson(inpath, outPath, config, 'DIST')
         // return this.mapService.readJsonDataByfolder(inpath, outPath, config, 'VIL') // pass the folder path only
     }
 
@@ -77,7 +77,7 @@ export class UserController {
     //create geojson data parsing by folder like admin0->admin1->admin2->admin3
     @Get('saveJsonByFolder')
     async saveJsonByFolder() {
-        const data: any = await this.mapService.getDataFromDb('COUNTRY');
+        const data: any = await this.mapService.getDataFromDb('VILLAGE');
         return data//JSON.stringify(data).replace(/\s/g, '')
     }
 

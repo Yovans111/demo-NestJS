@@ -52,10 +52,9 @@ export class MapService {
         let jsonData: any = {}, finalJson: any = {};
         // jsonData = await fsEx.readJson(inputfilePath);
         let outputFolderPath = outFilePath;
-        const readStream = fs.createReadStream(inputfilePath, 'utf8');
-        const parse = readStream.pipe(geojsonStream.parse())
+        const stream = this.readJsonAsStream(inputfilePath);
         // jsonData?.features.forEach((a: any) => {
-        parse.on('data', (a) => {
+        stream.on('data', (a) => {
             let distName: string = this.replaceSpeChar(a?.properties?.[config?.distName]),
                 stateName: string = this.replaceSpeChar(a?.properties?.[config?.stateName]),
                 subDistName: string = this.replaceSpeChar(a?.properties?.[config?.subDistName]),
@@ -114,9 +113,16 @@ export class MapService {
             this.writeJsonFile(`${villageInvPath}`, villageName, finalJson);
             console.log(`File for village ${villageName} in ${stateName}`);
         })
-        parse.on('end', () => {
+
+        stream.on('end', () => {
             console.log('read completed')
         })
+    }
+
+    readJsonAsStream(filePath) {
+        const readStream = fs.createReadStream(filePath, 'utf8');
+        const parse = readStream.pipe(geojsonStream.parse());
+        return parse;
     }
 
     replaceSpeChar(str: string): string {
@@ -174,8 +180,7 @@ export class MapService {
     readLargeJson(inpath, outpath) {
         const fs = require('fs');
         const filePath = inpath; // Replace with the actual file path
-        const readStream = fs.createReadStream(filePath, 'utf8');
-        const parse = readStream.pipe(geojsonStream.parse())
+        const parse = this.readJsonAsStream(filePath)
         let features = [],
             states = ['Andaman and Nicobar Islands']//'Lakshadweep', 'The Dadra And Nagar Haveli And Daman And Diu', 'Chhattisgarh', 'Andaman and Nicobar Islands', 'West Bengal', 'Haryana', 'Himachal Pradesh', 'Uttarakhand', 'Meghalaya', 'Sikkim', 'Mizoram', 'Nagaland', 'Arunachal Pradesh', 'Punjab', 'Puducherry', 'Jammu And Kashmir', 'Ladakh'
         const stateFeatureMap = new Map();
@@ -295,7 +300,7 @@ export class MapService {
     }
 
     createIndexByDataFolder() {
-        var GetFilelistRecursively = ((targetpath, depth = -1) => {
+        let GetFilelistRecursively = ((targetpath, depth = -1) => {
             let result = [];
             let dirs = fs.readdirSync(targetpath);
             dirs.forEach(file => {
@@ -314,7 +319,7 @@ export class MapService {
         country = this.replaceSpeChar(country), state = this.replaceSpeChar(state),
             dist = this.replaceSpeChar(dist), subdist = this.replaceSpeChar(subdist), village = this.replaceSpeChar(village)
         return new Promise(async (resolve, reject) => {
-            var GetFilelistRecursively = ((targetpath, depth = -1) => {
+            let GetFilelistRecursively = ((targetpath, depth = -1) => {
                 let result = [], file = []
                 let dirs = fs.readdirSync(targetpath);
                 dirs.forEach(files => {
@@ -387,7 +392,7 @@ export class MapService {
             villageQuery = this.villageRepository.createQueryBuilder('village'),
             wardQuery = this.wardRepository.createQueryBuilder('ward'),
             cityQuery = this.cityRepository.createQueryBuilder('city');
-        let name = 'ward_no_' + data?.properties['sourcewardcode'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
+        let name = data?.properties['Name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
             cityname = data?.properties['cityname'], res: any;
         // console.log('name=>', name, 'state =>', data?.properties?.['state']);
         switch (level) {
@@ -397,24 +402,30 @@ export class MapService {
                 res = await countryQuery.insert().into(Country).values({ country_name: name, geometries, properties, object_id: country_object_id }).execute()
                 break;
             case 'STATE':
-                let countryData = await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
+                let countryData = await countryQuery.where(`LOWER(country.country_name) LIKE LOWER(:value)`, { value: data?.properties['Country'] }).getOne(),//await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
                     country_id = countryData['id'], counObId = countryData['object_id'],
                     state_object_id = this.generateObjectId(counObId, 2);
                 properties = this.setProperty(properties, state_object_id)
+                this.countForEach.count++
+                console.log(`Before Insert ${name} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
                 res = await stateQuery.insert().into(State).values({ state_name: name, geometries, properties, country_id, object_id: state_object_id }).execute()
                 break;
             case 'DIST':
-                let stateData = await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
+                let stateData = await stateQuery.where(`LOWER(state.state_name) LIKE LOWER(:value)`, { value: data?.properties['State'] }).getOne();//await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
                 let state_id = stateData?.['id'], stateObId = stateData?.['object_id'],
                     district_object_id = this.generateObjectId(stateObId, 2);
                 properties = this.setProperty(properties, district_object_id)
+                this.countForEach.count++
+                console.log(`Before Insert ${name} | state => ${data?.properties['State']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
                 res = await districtQuery.insert().into(District).values({ district_name: name, geometries, properties, state_id, object_id: district_object_id }).execute()
                 break;
             case 'SUBDIST':
-                let districtData = await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
+                let districtData = await districtQuery.where(`LOWER(district.district_name) LIKE LOWER(:value)`, { value: data?.properties['District'] }).getOne();//await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
                 let district_id = districtData?.['id'], districtObId = districtData?.['object_id'],
                     subdist_object_id = this.generateObjectId(districtObId, 2);
                 properties = this.setProperty(properties, subdist_object_id);
+                this.countForEach.count++
+                console.log(`Before Insert ${name} | state => ${data?.properties['State']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
                 res = await subdistQuery.insert().into(SubDistrict).values({ subdistrict_name: name, geometries, properties, district_id, object_id: subdist_object_id }).execute()
                 break;
 
@@ -444,11 +455,11 @@ export class MapService {
                 break;
 
             case 'VIL':
-                let subdistData = await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
+                let subdistData = await subdistQuery.where(`LOWER(subdistrict.subdistrict_name) LIKE LOWER(:value)`, { value: data?.properties['Subdistrict'] }).getOne();//await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
                 let subdistrict_id = subdistData?.['id'], subdistObId = subdistData?.['object_id'],
-                    village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['state'];
+                    village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['State'];
                 properties = this.setProperty(properties, village_object_id)
-                const state = data?.properties['state'], district = data?.properties['district'], subdist = data?.properties['subdistrict']
+                const state = data?.properties['State'], district = data?.properties['District'], subdist = data?.properties['Subdistrict']
                 if (!this.village_dup?.[state]) {
                     this.village_dup[state] = {};
                 }
@@ -475,22 +486,24 @@ export class MapService {
     }
 
     async saveDataByFolder() {
-        let path = '../../../../../../mapData/ward/',
+        let path = '../../../../../../mapData/maharastrageojson',
             // fileName = await this.readFilesFromFolder(path) --> save By Folder
-            fileName = ['Chinchwad_Ward_Boundaries_2022 .json']
-        let count = 0
+            fileName = ['maharashtra_villages.geojson'];
         console.log('fileNames =>', fileName);
         const d = new Date()
         this.startTime = `${d.getHours()}:${d.getMinutes()}`;
         for (let fn of fileName) {
-            let jsonData = await this.readJsonFile(`${path}/${fn}`)
-            for (let feature of jsonData?.['features']) {
-                count++
-                this.saveData(feature, 'WARD');
-            }
+            const parse = this.readJsonAsStream(`${path}/${fn}`);
+            parse.on('data', (feature) => {
+                this.countForEach.total_count++;
+                this.saveData(feature, 'VIL');
+            })
+
+            parse.on('end', () => {
+                console.log('Total count =>', this.countForEach.total_count)
+                console.log('Geojson read completed')
+            })
         }
-        this.countForEach.total_count = count
-        console.log('Total count =>', count)
     }
 
     setProperty(properties, object_id) {
@@ -739,7 +752,7 @@ export class MapService {
                 where v.id =`
                 break;
             case 'CITY':
-                streamData = await cityQuery.stream();
+                streamData = (await cityQuery.stream());
                 break;
             case 'WARD':
                 streamData = await wardQuery.stream();
@@ -771,7 +784,7 @@ export class MapService {
     }
 
     async createFolderAndSave(level, json, fullData, count) {
-        let folderpath = '', outputFolderPath = `../../../../../../mapData/parseData/india_village`,
+        let folderpath = '', outputFolderPath = `../../../../../../mapData/maharastra-parse-data`,
             countryName = this.replaceSpeChar(fullData?.country_name),
             stateName = this.replaceSpeChar(fullData?.state_name), distName = this.replaceSpeChar(fullData?.district_name),
             subDistName = this.replaceSpeChar(fullData?.subdistrict_name), villageName = this.replaceSpeChar(fullData?.village_name),

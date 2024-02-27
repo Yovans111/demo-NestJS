@@ -17,7 +17,7 @@ async function bootstrap() {
     .setVersion('1.0')
     .addBearerAuth(
       {
-        description: ` Login in above api Get the token Try Again`,
+        description: ` Login using above api Get the token, Try Again`,
         name: 'Authorization',
         bearerFormat: 'Bearer', // I`ve tested not to use this field, but the result was the same
         scheme: 'Bearer',
