@@ -16,20 +16,20 @@ import { MongooseModule } from '@nestjs/mongoose';
   imports: [AuthModule, ModulesModule,
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: '162.241.224.20',
+      host: 'localhost',
       port: 3306,
-      username: 'mhsgloba_itoi_admin',
-      password: '0mx&4YU&6-lx',
-      database: 'mhsgloba_iif_dev', //change to demo for other database
-      entities: [ Country, State, District, SubDistrict, Village, City,Ward],
+      username: 'root',
+      password: 'admin@123#2023',
+      database: 'prod_mapdata', //change to demo for other database
+      entities: [Country, State, District, SubDistrict, Village, City, Ward],
       connectTimeout: 18000000 //30 min
       // synchronize: true,
-      
+
     }),
-//     MongooseModule.forRoot('mongodb://localhost:27017/your-mongodb-database-name', {
-//   // useNewUrlParser: true,
-//   // useUnifiedTopology: true,
-// }),
+    //     MongooseModule.forRoot('mongodb://localhost:27017/your-mongodb-database-name', {
+    //   // useNewUrlParser: true,
+    //   // useUnifiedTopology: true,
+    // }),
     MongooseModule.forRoot('mongodb://localhost/iif-local'),
 
     RouterModule.register([
@@ -53,5 +53,5 @@ export class AppModule implements NestModule {
       .forRoutes('*'); // ('*') applies the middleware to all routes, or you can specify specific routes here.
   }
 
-  
+
 }
