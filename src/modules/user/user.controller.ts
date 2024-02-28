@@ -76,9 +76,10 @@ export class UserController {
 
     //create geojson data parsing by folder like admin0->admin1->admin2->admin3
     @Get('saveJsonByFolder')
-    async saveJsonByFolder() {
-        const data: any = await this.mapService.getDataFromDb('VILLAGE');
-        return data//JSON.stringify(data).replace(/\s/g, '')
+    async parseGeojsonUsingDb() {
+        const outFolderPath = `../../../../../../mapData/maharastra-parse-data`
+        /* make ensure admin level before run parsing and confirm database name*/
+        return await this.mapService.getDataFromDb('VILLAGE', outFolderPath);
     }
 
     /** User **/
