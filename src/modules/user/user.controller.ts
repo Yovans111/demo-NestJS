@@ -31,10 +31,10 @@ export class UserController {
         //const inpath = 'src/assets/json/subdistrict/India_Sub_District_Boundary_2023.json', outpath = '../../../../../../mapData/subdistrict_2023'
         return this.mapService.readLargeJson(inpath, outpath);
         // const inpath = 'src/assets/rawJsonData', outpath = './src/assets/rawValidJson'
-       // return this.mapService.convertToSinglejson(inpath)
+        // return this.mapService.convertToSinglejson(inpath)
         // return this.mapService.getUserData();
     }
-   
+
 
     @Get('index')
     getIndex(): any {
@@ -86,11 +86,14 @@ export class UserController {
     //     return await this.mapService.getDataFromDbWard('WARD');
     // }
 
-    @Get('surveyandstatsward/:stateName/:districtName/:cityName')
-    async surveyStatsward(@Param('stateName') stateName: string, @Param('districtName') districtName: string,@Param('cityName') cityName: string) {
-        return await this.mapService.getDataFromDbWard('WARD', stateName, districtName, cityName);
+    // @Get('surveyandstatsward/:stateName/:districtName/:cityName')
+    // async surveyStatsward(@Param('stateName') stateName: string, @Param('districtName') districtName: string, @Param('cityName') cityName: string) {
+    //     return await this.mapService.getDataFromDbWard('WARD', stateName, districtName, cityName);
+    // }
+    @Get('surveyandstatsward/:stateName') ///:districtName/:cityName
+    async surveyStatsVillage(@Param('stateName') stateName: string, @Param('districtName') districtName: string) {
+        return await this.mapService.getDataFromDbVillage('VILLAGE', stateName, districtName);
     }
-
     @Get('location')
     async processData(): Promise<any> {
         console.log('Starting the process...');
@@ -100,10 +103,10 @@ export class UserController {
         const wardData = this.mapService.getPuneCityWards(puneCityPath);
         const puneCityEncuestaData = this.mapService.filterByAdmin3(encuestaData, 'Maharashtra');
         const updatedData = this.mapService.processMatchingDataWithCustomCheck(wardData, puneCityEncuestaData);
-        
-      const matchingData = updatedData.filter((church) => {
-        return church.admin2 ==='Nagpur' && church.admin3 === 'Nagpur City' && church.admin4; 
-    });
+
+        const matchingData = updatedData.filter((church) => {
+            return church.admin2 === 'Nagpur' && church.admin3 === 'Nagpur City' && church.admin4;
+        });
         this.mapService.writeJsonFile1('C:/Project/Map/output/iif-local.google_state_churches.json', matchingData);
 
         console.log('Process completed.');
@@ -119,7 +122,7 @@ export class UserController {
 
     @Get('image')
     image(): any {
-       
+
         return this.mapService.saveFile();
     }
 
@@ -129,40 +132,40 @@ export class UserController {
     //     return await this.mapService.getDataFromDbWardOutBoundary('WARD', stateName, districtName);
     // }
 
-    
+
 
 
     @Get('surveyandstatswardoutside')
-  async surveyStatsOutBoundary() {
-    let client: MongoClient | undefined;
+    async surveyStatsOutBoundary() {
+        let client: MongoClient | undefined;
 
-    try {
-      client = await MongoClient.connect('mongodb://localhost:27017/');
-      const db = client.db('iif-local');
+        try {
+            client = await MongoClient.connect('mongodb://localhost:27017/');
+            const db = client.db('iif-local');
 
-      const geocodeData = await db.collection('geocode_responses').findOne({});
+            const geocodeData = await db.collection('geocode_responses').findOne({});
 
-      if (!geocodeData) {
-        throw new Error('No geocode data found.');
-      }
+            if (!geocodeData) {
+                throw new Error('No geocode data found.');
+            }
 
-      const stateName = geocodeData.address.state;
-     //const districtName = geocodeData.address.state_district;
-      const districtName = geocodeData.address.county;
-      const result1 = await this.mapService.getDataFromDbWardOutBoundary('WARD', stateName, districtName);
-      //const result2 = await this.mapService.getDataFromDbVillageOutBoundary('VILLAGE', stateName, districtName);
-      return result1;
-     //return {result1,result2};
-    } catch (error) {
-      console.error('Error in surveyStatsOutBoundary:', error);
-      throw new Error('Error in surveyStatsOutBoundary.');
-    } finally {
-      if (client) {
-        await client.close();
-      }
+            const stateName = geocodeData.address.state;
+            //const districtName = geocodeData.address.state_district;
+            const districtName = geocodeData.address.county;
+            const result1 = await this.mapService.getDataFromDbWardOutBoundary('WARD', stateName, districtName);
+            //const result2 = await this.mapService.getDataFromDbVillageOutBoundary('VILLAGE', stateName, districtName);
+            return result1;
+            //return {result1,result2};
+        } catch (error) {
+            console.error('Error in surveyStatsOutBoundary:', error);
+            throw new Error('Error in surveyStatsOutBoundary.');
+        } finally {
+            if (client) {
+                await client.close();
+            }
+        }
     }
-  }
-    
+
     /** User **/
 
     // // @UseGuards(AuthGuard('jwt')) //tokenguard
