@@ -392,7 +392,7 @@ export class MapService {
             villageQuery = this.villageRepository.createQueryBuilder('village'),
             wardQuery = this.wardRepository.createQueryBuilder('ward'),
             cityQuery = this.cityRepository.createQueryBuilder('city');
-        let name = data?.properties['Name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
+        let name = data?.properties['name'], properties = data?.properties, geometries = this.stringifyData(data?.geometry),
             cityname = data?.properties['cityname'], res: any;
         // console.log('name=>', name, 'state =>', data?.properties?.['state']);
         switch (level) {
@@ -402,7 +402,7 @@ export class MapService {
                 res = await countryQuery.insert().into(Country).values({ country_name: name, geometries, properties, object_id: country_object_id }).execute()
                 break;
             case 'STATE':
-                let countryData = await countryQuery.where(`LOWER(country.country_name) LIKE LOWER(:value)`, { value: data?.properties['Country'] }).getOne(),//await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
+                let countryData = await countryQuery.where(`LOWER(country.country_name) LIKE LOWER(:value)`, { value: data?.properties['admin0'] }).getOne(),//await this.countryRepository.findOne({ where: { country_name: data?.properties['country'] } }),
                     country_id = countryData['id'], counObId = countryData['object_id'],
                     state_object_id = this.generateObjectId(counObId, 2);
                 properties = this.setProperty(properties, state_object_id, name)
@@ -411,21 +411,21 @@ export class MapService {
                 res = await stateQuery.insert().into(State).values({ state_name: name, geometries, properties, country_id, object_id: state_object_id }).execute()
                 break;
             case 'DIST':
-                let stateData = await stateQuery.where(`LOWER(state.state_name) LIKE LOWER(:value)`, { value: data?.properties['State'] }).getOne();//await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
+                let stateData = await stateQuery.where(`LOWER(state.state_name) LIKE LOWER(:value)`, { value: data?.properties['admin1'] }).getOne();//await this.stateRepository.findOne({ where: { state_name: data?.properties['state'] } });
                 let state_id = stateData?.['id'], stateObId = stateData?.['object_id'],
                     district_object_id = this.generateObjectId(stateObId, 2);
                 properties = this.setProperty(properties, district_object_id, name)
                 this.countForEach.count++
-                console.log(`Before Insert ${name} | state => ${data?.properties['State']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
+                console.log(`Before Insert ${name} | state => ${data?.properties['admin1']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
                 res = await districtQuery.insert().into(District).values({ district_name: name, geometries, properties, state_id, object_id: district_object_id }).execute()
                 break;
             case 'SUBDIST':
-                let districtData = await districtQuery.where(`LOWER(district.district_name) LIKE LOWER(:value)`, { value: data?.properties['District'] }).getOne();//await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
+                let districtData = await districtQuery.where(`LOWER(district.district_name) LIKE LOWER(:value)`, { value: data?.properties['admin2'] }).getOne();//await this.districtRepository.findOne({ where: { district_name: data?.properties['district'] } });
                 let district_id = districtData?.['id'], districtObId = districtData?.['object_id'],
                     subdist_object_id = this.generateObjectId(districtObId, 2);
                 properties = this.setProperty(properties, subdist_object_id, name);
                 this.countForEach.count++
-                console.log(`Before Insert ${name} | state => ${data?.properties['State']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
+                console.log(`Before Insert ${name} | state => ${data?.properties['admin1']} | count => ${this.countForEach.count} / ${this.countForEach.total_count} | start => ${this.startTime} `);
                 res = await subdistQuery.insert().into(SubDistrict).values({ subdistrict_name: name, geometries, properties, district_id, object_id: subdist_object_id }).execute()
                 break;
 
@@ -455,11 +455,11 @@ export class MapService {
                 break;
 
             case 'VIL':
-                let subdistData = await subdistQuery.where(`LOWER(subdistrict.subdistrict_name) LIKE LOWER(:value)`, { value: data?.properties['Subdistrict'] }).getOne();//await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
+                let subdistData = await subdistQuery.where(`LOWER(subdistrict.subdistrict_name) LIKE LOWER(:value)`, { value: data?.properties['admin3'] }).getOne();//await this.subDistrictRepository.findOne({ where: { subdistrict_name: data?.properties['subdistrict'] } });
                 let subdistrict_id = subdistData?.['id'], subdistObId = subdistData?.['object_id'],
-                    village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['State'];
+                    village_object_id = this.generateObjectId(subdistObId, 3), state_name = data?.properties?.['admin1'];
                 properties = this.setProperty(properties, village_object_id, name)
-                const state = data?.properties['State'], district = data?.properties['District'], subdist = data?.properties['Subdistrict']
+                const state = data?.properties['admin1'], district = data?.properties['admin2'], subdist = data?.properties['admin3']
                 if (!this.village_dup?.[state]) {
                     this.village_dup[state] = {};
                 }
@@ -488,7 +488,7 @@ export class MapService {
     async saveDataByFolder() {
         let path = '../../../../../../mapData/maharastrageojson',
             // fileName = await this.readFilesFromFolder(path) --> save By Folder
-            fileName = ['maharashtra_villages.geojson'];
+            fileName = ['maharashtra_village_admin.geojson'];
         console.log('fileNames =>', fileName);
         const d = new Date()
         this.startTime = `${d.getHours()}:${d.getMinutes()}`;
